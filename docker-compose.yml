@@ -1,6 +1,7 @@
 services:
   traefik:
     image: traefik:v3.1
+    container_name: traefik
     command:
       - "--api.insecure=true"
       - "--providers.docker=true"
@@ -11,27 +12,43 @@ services:
       - "8080:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - public-web
 
   app1:
     build: ./services/app1
+    container_name: app1
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.app1.rule=Host(`app1.beshtawi.online`)"
       - "traefik.http.routers.app1.entrypoints=web"
+      # Change 80 below if your internal app port is different (e.g., 3000)
       - "traefik.http.services.app1.loadbalancer.server.port=80"
+    networks:
+      - public-web
 
   app2:
     build: ./services/app2
+    container_name: app2
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.app2.rule=Host(`app2.beshtawi.online`)"
       - "traefik.http.routers.app2.entrypoints=web"
       - "traefik.http.services.app2.loadbalancer.server.port=80"
+    networks:
+      - public-web
 
-  default:
+  main-app:
     build: ./services/default
+    container_name: main-app
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.default.rule=Host(`beshtawi.online`)"
-      - "traefik.http.routers.default.entrypoints=web"
-      - "traefik.http.services.default.loadbalancer.server.port=80"
+      - "traefik.http.routers.main-app.rule=Host(`beshtawi.online`)"
+      - "traefik.http.routers.main-app.entrypoints=web"
+      - "traefik.http.services.main-app.loadbalancer.server.port=80"
+    networks:
+      - public-web
+
+networks:
+  public-web:
+    driver: bridge
