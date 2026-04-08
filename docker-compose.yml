@@ -7,11 +7,19 @@ services:
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
       - "--entrypoints.web.address=:80"
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencrypt.acme.email=beshtawi.ashraf@gmail.com"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
     ports:
       - "80:80"
+      - "443:443"
       - "8080:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      - letsencrypt:/letsencrypt
     networks:
       - public-web
 
@@ -21,8 +29,8 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.app1.rule=Host(`app1.beshtawi.online`)"
-      - "traefik.http.routers.app1.entrypoints=web"
-      # Change 80 below if your internal app port is different (e.g., 3000)
+      - "traefik.http.routers.app1.entrypoints=websecure"
+      - "traefik.http.routers.app1.tls.certresolver=letsencrypt"
       - "traefik.http.services.app1.loadbalancer.server.port=80"
     networks:
       - public-web
@@ -33,7 +41,8 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.app2.rule=Host(`app2.beshtawi.online`)"
-      - "traefik.http.routers.app2.entrypoints=web"
+      - "traefik.http.routers.app2.entrypoints=websecure"
+      - "traefik.http.routers.app2.tls.certresolver=letsencrypt"
       - "traefik.http.services.app2.loadbalancer.server.port=80"
     networks:
       - public-web
@@ -44,7 +53,8 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.main-app.rule=Host(`beshtawi.online`)"
-      - "traefik.http.routers.main-app.entrypoints=web"
+      - "traefik.http.routers.main-app.entrypoints=websecure"
+      - "traefik.http.routers.main-app.tls.certresolver=letsencrypt"
       - "traefik.http.services.main-app.loadbalancer.server.port=80"
     networks:
       - public-web
@@ -52,3 +62,6 @@ services:
 networks:
   public-web:
     driver: bridge
+
+volumes:
+  letsencrypt:
