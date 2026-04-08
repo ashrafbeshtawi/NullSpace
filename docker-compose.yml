@@ -16,7 +16,7 @@ services:
     build: ./services/app1
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.app1.rule=Host(`app1.localhost`)"
+      - "traefik.http.routers.app1.rule=Host(`app1.beshtawi.online`)"
       - "traefik.http.routers.app1.entrypoints=web"
       - "traefik.http.services.app1.loadbalancer.server.port=80"
 
@@ -24,6 +24,14 @@ services:
     build: ./services/app2
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.app2.rule=Host(`app2.localhost`)"
+      - "traefik.http.routers.app2.rule=Host(`app2.beshtawi.online`)"
       - "traefik.http.routers.app2.entrypoints=web"
       - "traefik.http.services.app2.loadbalancer.server.port=80"
+
+  default:
+    build: ./services/default
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.default.rule=Host(`beshtawi.online`)"
+      - "traefik.http.routers.default.entrypoints=web"
+      - "traefik.http.services.default.loadbalancer.server.port=80"
