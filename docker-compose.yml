@@ -1,9 +1,9 @@
 services:
   traefik:
-    image: traefik:v3.1
+    image: traefik:v3.4
     container_name: traefik
     environment:
-      - DOCKER_API_VERSION=1.40  # Add
+      - DOCKER_API_VERSION=1.40
     command:
       - "--api.insecure=true"
       - "--providers.docker=true"
