@@ -5,44 +5,98 @@ Personal multi-service platform running on Docker with Traefik as a reverse prox
 ## Architecture
 
 ```
-                    Internet
-                       |
-                 ┌─────┴─────┐
-                 │  Traefik   │  :80 (HTTP → HTTPS redirect)
-                 │  (proxy)   │  :443 (HTTPS + auto Let's Encrypt)
-                 └─────┬──────┘
-                       │
-          ┌────────────┼────────────┐
-          │            │            │
-     ┌────┴───┐  ┌─────┴────┐  ┌───┴────┐
-     │  app1  │  │  app2    │  │ default │
-     │  :80   │  │  :80     │  │  :80    │
-     └────────┘  └──────────┘  └─────────┘
+                         Internet
+                            |
+                     ┌──────┴──────┐
+                     │   Traefik   │  :80 (→ HTTPS redirect)
+                     │   (proxy)   │  :443 (HTTPS + Let's Encrypt)
+                     └──────┬──────┘
+                            │
+        ┌───────────┬───────┼───────┬───────────┐
+        │           │       │       │           │
+   ┌────┴───┐ ┌─────┴──┐ ┌─┴──┐ ┌──┴────┐ ┌────┴────┐
+   │ Admin  │ │Portainer│ │Apps│ │Dozzle │ │GlitchTip│
+   │ Panel  │ │        │ │    │ │(logs) │ │(errors) │
+   └────────┘ └────────┘ └──┬─┘ └───────┘ └────┬────┘
+                             │                   │
+                        ┌────┴───────────────────┴────┐
+                        │     Internal Network         │
+                        │  ┌──────────┐ ┌───────┐     │
+                        │  │PostgreSQL│ │ Redis │     │
+                        │  └──────────┘ └───────┘     │
+                        └─────────────────────────────┘
 ```
-
-- **Traefik** auto-discovers services via Docker labels and routes requests based on subdomain
-- **Let's Encrypt** certificates are issued and renewed automatically
-- **HTTP** requests are redirected to **HTTPS**
-- All services share a `public-web` Docker bridge network
 
 ## Services
 
-| Service | Subdomain | Description |
-|---------|-----------|-------------|
-| default | `beshtawi.online` | Main landing page |
-| app1 | `app1.beshtawi.online` | Service 1 |
-| app2 | `app2.beshtawi.online` | Service 2 |
+### Apps
+| Service | URL | Description |
+|---------|-----|-------------|
+| Main Site | `beshtawi.online` | Landing page |
+
+### Infrastructure
+| Service | URL | Description |
+|---------|-----|-------------|
+| Traefik | `traefik.beshtawi.online` | Reverse proxy dashboard (basic auth) |
+| Portainer | `portainer.beshtawi.online` | Docker management UI |
+| Admin Panel | `admin.beshtawi.online` | Links to all services (basic auth) |
+
+### Monitoring
+| Service | URL | Description |
+|---------|-----|-------------|
+| Uptime Kuma | `status.beshtawi.online` | Uptime monitoring & status page |
+| GlitchTip | `errors.beshtawi.online` | Error tracking (Sentry-compatible) |
+| Dozzle | `logs.beshtawi.online` | Real-time container logs (basic auth) |
+
+### Shared
+| Service | Description |
+|---------|-------------|
+| PostgreSQL 16 | Shared database (internal only) |
+| Redis 7 | Shared cache/queue (internal only) |
+
+## Setup
+
+### 1. Clone and configure
+
+```bash
+git clone <repo-url> /opt/NullSpace
+cd /opt/NullSpace
+cp .env.example .env
+```
+
+### 2. Generate basic auth password hash
+
+```bash
+# Install htpasswd if needed: apt install apache2-utils
+echo $(htpasswd -nB admin) | sed -e s/\$/\$\$/g
+```
+
+Paste the output as `ADMIN_PASSWORD_HASH` in `.env`.
+
+### 3. Update .env
+
+Fill in all values in `.env` — database credentials, GlitchTip secret key, and the password hash.
+
+### 4. DNS
+
+Set these A records:
+
+| Type | Host | Value |
+|------|------|-------|
+| A | `@` | Server IP |
+| A | `*` | Server IP |
+
+### 5. Start
+
+```bash
+docker compose up --build -d
+```
 
 ## Adding a New Service
 
-1. Create a directory under `services/`:
-   ```
-   services/my-app/
-   ├── Dockerfile
-   └── (your app files)
-   ```
+1. Create `services/my-app/` with a `Dockerfile`.
 
-2. Add the service to `docker-compose.yml`:
+2. Add to `docker-compose.yml`:
    ```yaml
    my-app:
      build: ./services/my-app
@@ -57,9 +111,9 @@ Personal multi-service platform running on Docker with Traefik as a reverse prox
        - public-web
    ```
 
-3. Add a DNS A record for the subdomain pointing to the server IP (or use a wildcard `*` record).
+3. If the service needs a database, add it to `scripts/init-databases.sql`.
 
-4. Push to `main` — CI/CD will deploy automatically.
+4. Push to `main` — CI/CD deploys automatically.
 
 ## Local Development
 
@@ -67,22 +121,13 @@ Personal multi-service platform running on Docker with Traefik as a reverse prox
 docker compose up --build
 ```
 
-Add entries to `/etc/hosts` for local testing:
+Add to `/etc/hosts`:
 ```
 127.0.0.1  beshtawi.online
 127.0.0.1  app1.beshtawi.online
 127.0.0.1  app2.beshtawi.online
+127.0.0.1  admin.beshtawi.online
 ```
-
-## Traefik Dashboard
-
-The dashboard is bound to localhost only (not publicly accessible). Access it via SSH tunnel:
-
-```bash
-ssh -L 8080:localhost:8080 user@your-server
-```
-
-Then visit `http://localhost:8080`.
 
 ## CI/CD
 
@@ -92,12 +137,3 @@ Required GitHub repository secrets:
 - `VPS_HOST`
 - `VPS_USER`
 - `VPS_PASSWORD`
-
-## DNS Setup
-
-Set these A records with your domain registrar:
-
-| Type | Host | Value |
-|------|------|-------|
-| A | `@` | Server IP |
-| A | `*` | Server IP |

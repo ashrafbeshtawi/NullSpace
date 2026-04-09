@@ -1,0 +1,82 @@
+# Production environment — use with: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# HTTPS with Let's Encrypt, real domain, basic auth on sensitive services
+services:
+  traefik:
+    command:
+      - "--api.dashboard=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencrypt.acme.email=beshtawi.ashraf@gmail.com"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik.rule=Host(`traefik.beshtawi.online`)"
+      - "traefik.http.routers.traefik.entrypoints=websecure"
+      - "traefik.http.routers.traefik.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.traefik.service=api@internal"
+      - "traefik.http.routers.traefik.middlewares=auth"
+      - "traefik.http.middlewares.auth.basicauth.users=${ADMIN_USER}:${ADMIN_PASSWORD_HASH}"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - letsencrypt:/letsencrypt
+
+  portainer:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.portainer.rule=Host(`portainer.beshtawi.online`)"
+      - "traefik.http.routers.portainer.entrypoints=websecure"
+      - "traefik.http.routers.portainer.tls.certresolver=letsencrypt"
+      - "traefik.http.services.portainer.loadbalancer.server.port=9000"
+
+  uptime-kuma:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.uptime.rule=Host(`status.beshtawi.online`)"
+      - "traefik.http.routers.uptime.entrypoints=websecure"
+      - "traefik.http.routers.uptime.tls.certresolver=letsencrypt"
+      - "traefik.http.services.uptime.loadbalancer.server.port=3001"
+
+  glitchtip:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.glitchtip.rule=Host(`errors.beshtawi.online`)"
+      - "traefik.http.routers.glitchtip.entrypoints=websecure"
+      - "traefik.http.routers.glitchtip.tls.certresolver=letsencrypt"
+      - "traefik.http.services.glitchtip.loadbalancer.server.port=8000"
+
+  dozzle:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dozzle.rule=Host(`logs.beshtawi.online`)"
+      - "traefik.http.routers.dozzle.entrypoints=websecure"
+      - "traefik.http.routers.dozzle.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.dozzle.middlewares=auth"
+      - "traefik.http.services.dozzle.loadbalancer.server.port=8080"
+
+  admin:
+    environment:
+      - ADMIN_SCHEME=https
+      - ADMIN_DOMAIN=beshtawi.online
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.admin.rule=Host(`admin.beshtawi.online`)"
+      - "traefik.http.routers.admin.entrypoints=websecure"
+      - "traefik.http.routers.admin.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.admin.middlewares=auth"
+      - "traefik.http.services.admin.loadbalancer.server.port=80"
+
+  main-app:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.main-app.rule=Host(`beshtawi.online`)"
+      - "traefik.http.routers.main-app.entrypoints=websecure"
+      - "traefik.http.routers.main-app.tls.certresolver=letsencrypt"
+      - "traefik.http.services.main-app.loadbalancer.server.port=80"

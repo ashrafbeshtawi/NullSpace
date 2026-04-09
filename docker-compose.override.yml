@@ -1,0 +1,64 @@
+# Dev environment — auto-loaded by `docker compose up`
+# HTTP only, no TLS, uses localhost subdomains on port 8000
+services:
+  traefik:
+    command:
+      - "--api.dashboard=true"
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+    ports:
+      - "8000:80"
+      - "8080:8080"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik.rule=Host(`traefik.localhost`)"
+      - "traefik.http.routers.traefik.entrypoints=web"
+      - "traefik.http.routers.traefik.service=api@internal"
+
+  portainer:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.portainer.rule=Host(`portainer.localhost`)"
+      - "traefik.http.routers.portainer.entrypoints=web"
+      - "traefik.http.services.portainer.loadbalancer.server.port=9000"
+
+  uptime-kuma:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.uptime.rule=Host(`status.localhost`)"
+      - "traefik.http.routers.uptime.entrypoints=web"
+      - "traefik.http.services.uptime.loadbalancer.server.port=3001"
+
+  glitchtip:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.glitchtip.rule=Host(`errors.localhost`)"
+      - "traefik.http.routers.glitchtip.entrypoints=web"
+      - "traefik.http.services.glitchtip.loadbalancer.server.port=8000"
+
+  dozzle:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dozzle.rule=Host(`logs.localhost`)"
+      - "traefik.http.routers.dozzle.entrypoints=web"
+      - "traefik.http.services.dozzle.loadbalancer.server.port=8080"
+
+  admin:
+    environment:
+      - ADMIN_SCHEME=http
+      - ADMIN_DOMAIN=localhost
+      - ADMIN_PORT=8000
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.admin.rule=Host(`admin.localhost`)"
+      - "traefik.http.routers.admin.entrypoints=web"
+      - "traefik.http.services.admin.loadbalancer.server.port=80"
+
+  main-app:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.main-app.rule=Host(`localhost`)"
+      - "traefik.http.routers.main-app.entrypoints=web"
+      - "traefik.http.services.main-app.loadbalancer.server.port=80"
