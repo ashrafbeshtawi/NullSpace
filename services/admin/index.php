@@ -131,7 +131,6 @@
         'Monitoring' => [
             ['name' => 'Uptime Kuma', 'sub' => 'status.', 'desc' => 'Uptime monitoring & status page', 'type' => 'monitor', 'icon' => '&#9829;'],
             ['name' => 'GlitchTip', 'sub' => 'errors.', 'desc' => 'Error tracking (Sentry-compatible)', 'type' => 'monitor', 'icon' => '&#9888;'],
-            ['name' => 'Dozzle', 'sub' => 'logs.', 'desc' => 'Real-time container logs', 'type' => 'monitor', 'icon' => '&#9776;'],
         ],
     ];
     ?>

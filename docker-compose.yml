@@ -64,20 +64,6 @@ services:
     networks:
       - public-web
 
-  glitchtip-migrate:
-    image: glitchtip/glitchtip
-    container_name: glitchtip-migrate
-    command: ./manage.py migrate
-    environment:
-      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/glitchtip
-      - REDIS_URL=redis://redis:6379/0
-      - SECRET_KEY=${GLITCHTIP_SECRET_KEY}
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - internal
-
   glitchtip:
     image: glitchtip/glitchtip
     container_name: glitchtip
@@ -92,8 +78,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      glitchtip-migrate:
-        condition: service_completed_successfully
     labels:
       - "traefik.enable=true"
       - "traefik.http.services.glitchtip.loadbalancer.server.port=8000"
@@ -114,21 +98,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      glitchtip-migrate:
-        condition: service_completed_successfully
     networks:
       - internal
-
-  dozzle:
-    image: amir20/dozzle:latest
-    container_name: dozzle
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.services.dozzle.loadbalancer.server.port=8080"
-    networks:
-      - public-web
 
   # --- Admin Panel ---
 

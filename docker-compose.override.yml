@@ -38,13 +38,6 @@ services:
       - "traefik.http.routers.glitchtip.entrypoints=web"
       - "traefik.http.services.glitchtip.loadbalancer.server.port=8000"
 
-  dozzle:
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.dozzle.rule=Host(`logs.localhost`)"
-      - "traefik.http.routers.dozzle.entrypoints=web"
-      - "traefik.http.services.dozzle.loadbalancer.server.port=8080"
-
   admin:
     environment:
       - ADMIN_SCHEME=http

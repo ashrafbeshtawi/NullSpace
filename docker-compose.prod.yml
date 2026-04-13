@@ -52,15 +52,6 @@ services:
       - "traefik.http.routers.glitchtip.tls.certresolver=letsencrypt"
       - "traefik.http.services.glitchtip.loadbalancer.server.port=8000"
 
-  dozzle:
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.dozzle.rule=Host(`logs.beshtawi.online`)"
-      - "traefik.http.routers.dozzle.entrypoints=websecure"
-      - "traefik.http.routers.dozzle.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.dozzle.middlewares=auth"
-      - "traefik.http.services.dozzle.loadbalancer.server.port=8080"
-
   admin:
     environment:
       - ADMIN_SCHEME=https
