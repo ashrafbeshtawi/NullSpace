@@ -34,6 +34,7 @@ services:
       - "traefik.http.routers.portainer.rule=Host(`portainer.beshtawi.online`)"
       - "traefik.http.routers.portainer.entrypoints=websecure"
       - "traefik.http.routers.portainer.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.portainer.middlewares=auth"
       - "traefik.http.services.portainer.loadbalancer.server.port=9000"
 
   uptime-kuma:
@@ -42,6 +43,7 @@ services:
       - "traefik.http.routers.uptime.rule=Host(`status.beshtawi.online`)"
       - "traefik.http.routers.uptime.entrypoints=websecure"
       - "traefik.http.routers.uptime.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.uptime.middlewares=auth"
       - "traefik.http.services.uptime.loadbalancer.server.port=3001"
 
   glitchtip:
@@ -50,6 +52,7 @@ services:
       - "traefik.http.routers.glitchtip.rule=Host(`errors.beshtawi.online`)"
       - "traefik.http.routers.glitchtip.entrypoints=websecure"
       - "traefik.http.routers.glitchtip.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.glitchtip.middlewares=auth"
       - "traefik.http.services.glitchtip.loadbalancer.server.port=8000"
 
   admin:
