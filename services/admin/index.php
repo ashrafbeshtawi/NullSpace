@@ -8,109 +8,124 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: #0a0a0f;
+            background: #060609;
             color: #e2e8f0;
             min-height: 100vh;
+            padding: 2rem;
         }
         .header {
-            padding: 2.5rem 2rem 1.5rem;
-            border-bottom: 1px solid rgba(255,255,255,0.06);
+            text-align: center;
+            margin-bottom: 3rem;
         }
         .header h1 {
             font-size: 1.75rem;
-            font-weight: 700;
+            font-weight: 800;
             color: #f8fafc;
-            letter-spacing: -0.025em;
+            letter-spacing: -0.03em;
         }
         .header p {
-            color: #64748b;
-            margin-top: 0.25rem;
-            font-size: 0.875rem;
-        }
-        .content { padding: 2rem; }
-        .section-title {
-            font-size: 0.7rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
             color: #475569;
+            margin-top: 0.35rem;
+            font-size: 0.85rem;
+        }
+        .env-badge {
+            display: inline-block;
+            font-size: 0.55rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            padding: 2px 8px;
+            border-radius: 20px;
+            margin-left: 0.5rem;
+            vertical-align: middle;
+        }
+        .env-dev { background: rgba(250, 204, 21, 0.12); color: #facc15; }
+        .env-prod { background: rgba(52, 211, 153, 0.12); color: #34d399; }
+        .dashboard {
+            width: 100%;
+            max-width: 1100px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2rem;
+        }
+        .section-title {
+            font-size: 0.65rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: #334155;
             margin-bottom: 0.75rem;
             padding-left: 0.25rem;
         }
-        .section { margin-bottom: 2rem; }
-        .grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 0.75rem;
+        .cards {
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
         }
         .card {
-            background: #111118;
-            border: 1px solid rgba(255,255,255,0.06);
-            border-radius: 12px;
-            padding: 1.25rem 1.5rem;
+            background: #0c0c14;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 14px;
+            padding: 1.25rem 1.35rem;
             display: flex;
             align-items: center;
             gap: 1rem;
             transition: all 0.2s ease;
             text-decoration: none;
+            position: relative;
+            overflow: hidden;
+        }
+        .card::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            opacity: 0;
+            transition: opacity 0.2s ease;
         }
         .card:hover {
-            background: #16161f;
-            border-color: rgba(255,255,255,0.12);
-            transform: translateY(-1px);
+            background: #10101a;
+            border-color: rgba(255, 255, 255, 0.08);
+            transform: translateX(2px);
         }
+        .card:hover::after { opacity: 1; }
+        .card-app::after { background: #34d399; }
+        .card-infra::after { background: #60a5fa; }
+        .card-monitor::after { background: #a78bfa; }
         .icon {
-            width: 40px;
-            height: 40px;
-            border-radius: 10px;
+            width: 44px;
+            height: 44px;
+            border-radius: 11px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.1rem;
+            font-size: 1.2rem;
             flex-shrink: 0;
         }
-        .icon-app { background: rgba(52, 211, 153, 0.1); color: #34d399; }
-        .icon-infra { background: rgba(96, 165, 250, 0.1); color: #60a5fa; }
-        .icon-monitor { background: rgba(167, 139, 250, 0.1); color: #a78bfa; }
+        .icon-app { background: rgba(52, 211, 153, 0.08); color: #34d399; }
+        .icon-infra { background: rgba(96, 165, 250, 0.08); color: #60a5fa; }
+        .icon-monitor { background: rgba(167, 139, 250, 0.08); color: #a78bfa; }
         .card-info { flex: 1; min-width: 0; }
         .card-name {
             font-weight: 600;
             font-size: 0.95rem;
-            color: #f1f5f9;
+            color: #e2e8f0;
         }
         .card-desc {
-            color: #64748b;
-            font-size: 0.8rem;
-            margin-top: 0.15rem;
-        }
-        .card-url {
             color: #475569;
-            font-size: 0.7rem;
-            font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
-            margin-top: 0.25rem;
+            font-size: 0.75rem;
+            margin-top: 0.1rem;
+            white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            white-space: nowrap;
         }
-        .arrow {
-            color: #334155;
-            font-size: 1.1rem;
-            transition: color 0.2s;
+
+        @media (max-width: 700px) {
+            .dashboard { grid-template-columns: 1fr; gap: 1rem; }
         }
-        .card:hover .arrow { color: #64748b; }
-        .env-badge {
-            display: inline-block;
-            font-size: 0.65rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            padding: 3px 8px;
-            border-radius: 6px;
-            margin-left: 0.75rem;
-            vertical-align: middle;
-        }
-        .env-dev { background: rgba(250, 204, 21, 0.1); color: #facc15; }
-        .env-prod { background: rgba(52, 211, 153, 0.1); color: #34d399; }
     </style>
 </head>
 <body>
@@ -123,15 +138,15 @@
     $sections = [
         'Applications' => [
             ['name' => 'Main Site', 'sub' => '', 'desc' => 'Landing page', 'type' => 'app', 'icon' => '&#9670;'],
-            ['name' => 'OpenClaw', 'sub' => 'chat.', 'desc' => 'AI assistant (OpenRouter)', 'type' => 'app', 'icon' => '&#129438;'],
+            ['name' => 'OpenClaw', 'sub' => 'chat.', 'desc' => 'AI assistant', 'type' => 'app', 'icon' => '&#129438;'],
         ],
         'Infrastructure' => [
-            ['name' => 'Traefik', 'sub' => 'traefik.', 'desc' => 'Reverse proxy dashboard', 'type' => 'infra', 'icon' => '&#9881;'],
-            ['name' => 'Portainer', 'sub' => 'portainer.', 'desc' => 'Docker container management', 'type' => 'infra', 'icon' => '&#9638;'],
+            ['name' => 'Traefik', 'sub' => 'traefik.', 'desc' => 'Reverse proxy', 'type' => 'infra', 'icon' => '&#9881;'],
+            ['name' => 'Portainer', 'sub' => 'portainer.', 'desc' => 'Docker management', 'type' => 'infra', 'icon' => '&#9638;'],
         ],
         'Monitoring' => [
-            ['name' => 'Uptime Kuma', 'sub' => 'status.', 'desc' => 'Uptime monitoring & status page', 'type' => 'monitor', 'icon' => '&#9829;'],
-            ['name' => 'GlitchTip', 'sub' => 'errors.', 'desc' => 'Error tracking (Sentry-compatible)', 'type' => 'monitor', 'icon' => '&#9888;'],
+            ['name' => 'Uptime Kuma', 'sub' => 'status.', 'desc' => 'Uptime monitoring', 'type' => 'monitor', 'icon' => '&#9829;'],
+            ['name' => 'GlitchTip', 'sub' => 'errors.', 'desc' => 'Error tracking', 'type' => 'monitor', 'icon' => '&#9888;'],
         ],
     ];
     ?>
@@ -146,22 +161,20 @@
         <p>Service dashboard</p>
     </div>
 
-    <div class="content">
+    <div class="dashboard">
         <?php foreach ($sections as $title => $services): ?>
         <div class="section">
             <div class="section-title"><?= $title ?></div>
-            <div class="grid">
+            <div class="cards">
                 <?php foreach ($services as $s):
                     $url = "{$scheme}://{$s['sub']}{$domain}{$port}";
                 ?>
-                <a href="<?= $url ?>" target="_blank" class="card">
+                <a href="<?= $url ?>" target="_blank" class="card card-<?= $s['type'] ?>">
                     <div class="icon icon-<?= $s['type'] ?>"><?= $s['icon'] ?></div>
                     <div class="card-info">
                         <div class="card-name"><?= $s['name'] ?></div>
                         <div class="card-desc"><?= $s['desc'] ?></div>
-                        <div class="card-url"><?= $s['sub'] . $domain . $port ?></div>
                     </div>
-                    <div class="arrow">&#8594;</div>
                 </a>
                 <?php endforeach; ?>
             </div>
