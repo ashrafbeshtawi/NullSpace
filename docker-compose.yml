@@ -114,6 +114,26 @@ services:
 
   # --- App Services ---
 
+  openclaw:
+    image: ghcr.io/openclaw/openclaw:latest
+    container_name: openclaw
+    user: "0:0"
+    entrypoint:
+      - /bin/sh
+      - -c
+      - 'chown -R node:node /home/node/.openclaw && exec su node -s /bin/sh -c "docker-entrypoint.sh node openclaw.mjs gateway --allow-unconfigured"'
+    environment:
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
+      - OPENCLAW_SANDBOX=1
+    volumes:
+      - openclaw_config:/home/node/.openclaw
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.services.openclaw.loadbalancer.server.port=18789"
+    networks:
+      - public-web
+
   main-app:
     build: ./services/default
     container_name: main-app
@@ -135,3 +155,4 @@ volumes:
   redis_data:
   portainer_data:
   uptime_kuma_data:
+  openclaw_config:

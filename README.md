@@ -12,12 +12,12 @@ Personal multi-service platform running on Docker with Traefik as a reverse prox
                      │   (proxy)   │  :443 (HTTPS + Let's Encrypt)
                      └──────┬──────┘
                             │
-        ┌───────────┬───────┼───────────┐
-        │           │       │           │
-   ┌────┴───┐ ┌─────┴──┐ ┌─┴──┐ ┌──────┴──┐
-   │ Admin  │ │Portainer│ │Apps│ │GlitchTip│
-   │ Panel  │ │        │ │    │ │(errors) │
-   └────────┘ └────────┘ └──┬─┘ └────┬────┘
+        ┌───────────┬───────┼───────────┬───────────┐
+        │           │       │           │           │
+   ┌────┴───┐ ┌─────┴──┐ ┌─┴──┐ ┌──────┴──┐ ┌─────┴────┐
+   │ Admin  │ │Portainer│ │Apps│ │GlitchTip│ │ OpenClaw │
+   │ Panel  │ │        │ │    │ │(errors) │ │  (chat)  │
+   └────────┘ └────────┘ └──┬─┘ └────┬────┘ └──────────┘
                              │       │
                         ┌────┴───────┴────────────────┐
                         │     Internal Network         │
@@ -33,6 +33,7 @@ Personal multi-service platform running on Docker with Traefik as a reverse prox
 | Service | URL | Description |
 |---------|-----|-------------|
 | Main Site | `beshtawi.online` | Landing page |
+| OpenClaw | `chat.beshtawi.online` | AI assistant (OpenRouter LLM, basic auth) |
 
 ### Infrastructure
 | Service | URL | Description |
@@ -74,7 +75,7 @@ Paste the output as `ADMIN_PASSWORD_HASH` in `.env`.
 
 ### 3. Update .env
 
-Fill in all values in `.env` — database credentials, GlitchTip secret key, and the password hash.
+Fill in all values in `.env` — database credentials, GlitchTip secret key, the password hash, and OpenClaw keys (see below).
 
 ### 4. DNS
 
@@ -90,6 +91,53 @@ Set these A records:
 ```bash
 docker compose up --build -d
 ```
+
+## OpenClaw Setup
+
+OpenClaw runs as a containerized AI assistant connected to OpenRouter.
+
+### First-time setup (production)
+
+After `docker compose up -d`, configure the allowed origin and approve your browser:
+
+```bash
+# Allow the Control UI to load from the prod domain
+docker exec -u node openclaw openclaw config set \
+  gateway.controlUi.allowedOrigins '["https://chat.beshtawi.online"]' --strict-json
+docker restart openclaw
+
+# (Optional) Trust Traefik proxy headers for correct IP detection
+docker exec -u node openclaw openclaw config set \
+  gateway.trustedProxies '["10.0.0.0/8","172.16.0.0/12","192.168.0.0/16"]' --strict-json
+docker restart openclaw
+```
+
+### Pairing a browser
+
+Each new browser must be paired with the gateway:
+
+1. Open the Control UI (e.g. `https://chat.beshtawi.online`).
+2. Paste the `OPENCLAW_GATEWAY_TOKEN` from `.env` and click Connect.
+3. The UI will show "pairing required". On the server, approve it:
+
+```bash
+docker exec openclaw openclaw devices list          # find the pending request ID
+docker exec openclaw openclaw devices approve <id>   # approve it
+```
+
+### Managing devices
+
+```bash
+docker exec openclaw openclaw devices list     # list all paired/pending devices
+docker exec openclaw openclaw devices remove   # remove a paired device
+docker exec openclaw openclaw devices revoke   # revoke a device token
+```
+
+### Notes
+
+- All OpenClaw config is stored in the `openclaw_config` Docker volume at `/home/node/.openclaw/`.
+- The container runs an entrypoint wrapper that fixes volume permissions (`chown`) before starting the gateway as the `node` user.
+- Use `-u node` when running `openclaw config set` via `docker exec` so writes go to the correct config file.
 
 ## Adding a New Service
 
@@ -126,6 +174,7 @@ Add to `/etc/hosts`:
 127.0.0.1  app1.beshtawi.online
 127.0.0.1  app2.beshtawi.online
 127.0.0.1  admin.beshtawi.online
+127.0.0.1  chat.localhost
 ```
 
 ## CI/CD

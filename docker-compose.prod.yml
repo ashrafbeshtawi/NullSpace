@@ -64,6 +64,15 @@ services:
       - "traefik.http.routers.admin.middlewares=auth"
       - "traefik.http.services.admin.loadbalancer.server.port=80"
 
+  openclaw:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.openclaw.rule=Host(`chat.beshtawi.online`)"
+      - "traefik.http.routers.openclaw.entrypoints=websecure"
+      - "traefik.http.routers.openclaw.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.openclaw.middlewares=auth"
+      - "traefik.http.services.openclaw.loadbalancer.server.port=18789"
+
   main-app:
     labels:
       - "traefik.enable=true"
