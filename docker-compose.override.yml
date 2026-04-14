@@ -50,6 +50,8 @@ services:
       - "traefik.http.services.admin.loadbalancer.server.port=80"
 
   openclaw:
+    environment:
+      - OPENCLAW_ALLOWED_ORIGINS=http://localhost:18789,http://127.0.0.1:18789,http://chat.localhost:8000
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.openclaw.rule=Host(`chat.localhost`)"

@@ -121,11 +121,33 @@ services:
     entrypoint:
       - /bin/sh
       - -c
-      - 'chown -R node:node /home/node/.openclaw && exec su node -s /bin/sh -c "docker-entrypoint.sh node openclaw.mjs gateway --allow-unconfigured"'
+      - |
+        chown -R node:node /home/node/.openclaw
+        CFG=/home/node/.openclaw/openclaw.json
+        node -e "
+          const fs = require('fs');
+          const cfg = fs.existsSync('$${CFG}') ? JSON.parse(fs.readFileSync('$${CFG}','utf8')) : {};
+          cfg.gateway = cfg.gateway || {};
+          cfg.gateway.auth = cfg.gateway.auth || {};
+          if (process.env.OPENCLAW_GATEWAY_TOKEN) cfg.gateway.auth.token = process.env.OPENCLAW_GATEWAY_TOKEN;
+          cfg.gateway.controlUi = cfg.gateway.controlUi || {};
+          const origins = (process.env.OPENCLAW_ALLOWED_ORIGINS || '').split(',').filter(Boolean);
+          if (origins.length) cfg.gateway.controlUi.allowedOrigins = origins;
+          const proxies = (process.env.OPENCLAW_TRUSTED_PROXIES || '').split(',').filter(Boolean);
+          if (proxies.length) cfg.gateway.trustedProxies = proxies;
+          cfg.agents = cfg.agents || {};
+          cfg.agents.defaults = cfg.agents.defaults || {};
+          if (process.env.OPENCLAW_DEFAULT_MODEL) cfg.agents.defaults.model = process.env.OPENCLAW_DEFAULT_MODEL;
+          fs.writeFileSync('$${CFG}', JSON.stringify(cfg, null, 2));
+        "
+        chown node:node $${CFG}
+        exec su node -s /bin/sh -c "docker-entrypoint.sh node openclaw.mjs gateway --allow-unconfigured"
     environment:
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
       - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
       - OPENCLAW_SANDBOX=1
+      - OPENCLAW_DEFAULT_MODEL=openrouter/auto
+      - OPENCLAW_TRUSTED_PROXIES=10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
     volumes:
       - openclaw_config:/home/node/.openclaw
     labels:

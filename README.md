@@ -96,27 +96,27 @@ docker compose up --build -d
 
 OpenClaw runs as a containerized AI assistant connected to OpenRouter.
 
-### First-time setup (production)
+### Configuration
 
-After `docker compose up -d`, configure the allowed origin and approve your browser:
+All gateway config is seeded automatically on container start via env vars — no manual `docker exec` steps needed after deploy:
 
-```bash
-# Allow the Control UI to load from the prod domain
-docker exec -u node openclaw openclaw config set \
-  gateway.controlUi.allowedOrigins '["https://chat.beshtawi.online"]' --strict-json
-docker restart openclaw
+| Env var | Set in | Purpose |
+|---------|--------|---------|
+| `OPENROUTER_API_KEY` | `.env` | OpenRouter API key for LLM inference |
+| `OPENCLAW_GATEWAY_TOKEN` | `.env` | Auth token browsers must present to connect |
+| `OPENCLAW_DEFAULT_MODEL` | `docker-compose.yml` | Default LLM model (`openrouter/auto`) |
+| `OPENCLAW_ALLOWED_ORIGINS` | `override.yml` / `prod.yml` | Origins allowed to open the Control UI |
+| `OPENCLAW_TRUSTED_PROXIES` | `docker-compose.yml` | Private IP ranges Traefik forwards from |
 
-# (Optional) Trust Traefik proxy headers for correct IP detection
-docker exec -u node openclaw openclaw config set \
-  gateway.trustedProxies '["10.0.0.0/8","172.16.0.0/12","192.168.0.0/16"]' --strict-json
-docker restart openclaw
-```
+The entrypoint writes these into `openclaw.json` before the gateway starts, so a fresh volume gets the right config immediately.
+
+**Trusted proxies** are set to the standard RFC 1918 private ranges (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`). This tells OpenClaw to trust `X-Forwarded-For` headers from Docker-internal IPs (Traefik), so it can see the real client IP instead of the container network address.
 
 ### Pairing a browser
 
 Each new browser must be paired with the gateway:
 
-1. Open the Control UI (e.g. `https://chat.beshtawi.online`).
+1. Open the Control UI (`https://chat.beshtawi.online` or `http://chat.localhost:8000`).
 2. Paste the `OPENCLAW_GATEWAY_TOKEN` from `.env` and click Connect.
 3. The UI will show "pairing required". On the server, approve it:
 
@@ -136,8 +136,8 @@ docker exec openclaw openclaw devices revoke   # revoke a device token
 ### Notes
 
 - All OpenClaw config is stored in the `openclaw_config` Docker volume at `/home/node/.openclaw/`.
-- The container runs an entrypoint wrapper that fixes volume permissions (`chown`) before starting the gateway as the `node` user.
-- Use `-u node` when running `openclaw config set` via `docker exec` so writes go to the correct config file.
+- The entrypoint runs as root to fix volume permissions (`chown`), seeds `openclaw.json` from env vars, then drops to the `node` user for the gateway process.
+- Use `-u node` when running `openclaw config set` via `docker exec` so writes go to the correct config file (not `/root/.openclaw/`).
 
 ## Adding a New Service
 
