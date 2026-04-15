@@ -113,30 +113,35 @@ Set these in `.env`:
 
 ### First-time setup (per environment)
 
-Run this **once** on a fresh volume. The wizard is interactive — pick OpenRouter as the provider, token auth, `lan` bind mode, and let it reference `OPENCLAW_GATEWAY_TOKEN` as the token env var:
+Run this **once** on a fresh volume. The wizard is interactive — pick OpenRouter as the provider, token auth, `lan` bind mode, and let it reference `OPENCLAW_GATEWAY_TOKEN` as the token env var.
+
+Every command uses explicit `-f` flags so the right environment config is loaded. Commands below are for **prod**; for dev, swap `docker-compose.prod.yml` → `docker-compose.override.yml`.
 
 ```bash
 # 1. Bring up init to chown the volume
-docker compose up -d openclaw-init
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d openclaw-init
 
 # 2. Run the interactive onboarding wizard
-docker compose run --rm --no-deps --entrypoint openclaw openclaw-gateway onboard
+docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+  run --rm --no-deps --entrypoint openclaw openclaw-gateway onboard
 
-# 3. Set the Control UI allowed origins (choose the right host for your env)
-docker compose run --rm --no-deps --entrypoint openclaw openclaw-gateway \
+# 3. Set the Control UI allowed origins
+#    Prod:  '["https://chat.beshtawi.online"]'
+#    Dev:   '["http://localhost:18789","http://127.0.0.1:18789","http://chat.localhost:8000"]'
+docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+  run --rm --no-deps --entrypoint openclaw openclaw-gateway \
   config set gateway.controlUi.allowedOrigins \
   '["https://chat.beshtawi.online"]' --strict-json
 
 # 4. Trust Traefik's proxy headers (RFC 1918 private ranges)
-docker compose run --rm --no-deps --entrypoint openclaw openclaw-gateway \
+docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+  run --rm --no-deps --entrypoint openclaw openclaw-gateway \
   config set gateway.trustedProxies \
   '["10.0.0.0/8","172.16.0.0/12","192.168.0.0/16"]' --strict-json
 
 # 5. Start the gateway
-docker compose up -d openclaw-gateway
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d openclaw-gateway
 ```
-
-For local dev, replace step 3's origin list with `["http://localhost:18789","http://127.0.0.1:18789","http://chat.localhost:8000"]`.
 
 ### Pairing a browser
 
@@ -147,17 +152,17 @@ Each new browser must be paired with the gateway:
 3. The UI will show "pairing required". On the server, approve it:
 
 ```bash
-docker compose run --rm openclaw-cli devices list          # find the pending request ID
-docker compose run --rm openclaw-cli devices approve <id>  # approve it
+docker compose -f docker-compose.yml -f docker-compose.prod.yml run --rm openclaw-cli devices list
+docker compose -f docker-compose.yml -f docker-compose.prod.yml run --rm openclaw-cli devices approve <id>
 ```
 
 ### Managing devices and config
 
 ```bash
-docker compose run --rm openclaw-cli devices list      # list paired/pending devices
-docker compose run --rm openclaw-cli devices remove    # remove a paired device
-docker compose run --rm openclaw-cli config get <path> # read a config value
-docker compose run --rm openclaw-cli config set <path> <json-value>  # write one
+docker compose -f docker-compose.yml -f docker-compose.prod.yml run --rm openclaw-cli devices list
+docker compose -f docker-compose.yml -f docker-compose.prod.yml run --rm openclaw-cli devices remove
+docker compose -f docker-compose.yml -f docker-compose.prod.yml run --rm openclaw-cli config get <path>
+docker compose -f docker-compose.yml -f docker-compose.prod.yml run --rm openclaw-cli config set <path> <json-value>
 ```
 
 ### Starting over from scratch
@@ -165,7 +170,7 @@ docker compose run --rm openclaw-cli config set <path> <json-value>  # write one
 To blow away all OpenClaw state and redo onboarding:
 
 ```bash
-docker compose rm -sf openclaw-init openclaw-gateway openclaw-cli
+docker compose -f docker-compose.yml -f docker-compose.prod.yml rm -sf openclaw-init openclaw-gateway openclaw-cli
 docker volume rm nullspace_openclaw_config
 # Then re-run the First-time setup steps above.
 ```
