@@ -94,23 +94,36 @@ docker compose up --build -d
 
 ## OpenClaw Setup
 
-OpenClaw runs as a containerized AI assistant connected to OpenRouter.
+OpenClaw runs as a containerized AI assistant connected to OpenRouter. The stack follows the upstream [docs' standard two-service pattern](https://docs.openclaw.ai/install/docker):
+
+| Service | Role |
+|---------|------|
+| `openclaw-init` | One-shot Alpine container — chowns the named volume to uid 1000 |
+| `openclaw-configure` | One-shot — seeds `openclaw.json` via `openclaw config set --batch-json` |
+| `openclaw-gateway` | Long-running gateway exposed via Traefik |
+| `openclaw-cli` | Profile-gated sidecar for CLI commands (`devices list`, etc.) |
 
 ### Configuration
 
-All gateway config is seeded automatically on container start via env vars — no manual `docker exec` steps needed after deploy:
+All gateway config is seeded automatically on `docker compose up` — no manual steps needed after deploy:
 
 | Env var | Set in | Purpose |
 |---------|--------|---------|
 | `OPENROUTER_API_KEY` | `.env` | OpenRouter API key for LLM inference |
 | `OPENCLAW_GATEWAY_TOKEN` | `.env` | Auth token browsers must present to connect |
-| `OPENCLAW_DEFAULT_MODEL` | `docker-compose.yml` | Default LLM model (`openrouter/auto`) |
 | `OPENCLAW_ALLOWED_ORIGINS` | `override.yml` / `prod.yml` | Origins allowed to open the Control UI |
 | `OPENCLAW_TRUSTED_PROXIES` | `docker-compose.yml` | Private IP ranges Traefik forwards from |
 
-The entrypoint writes these into `openclaw.json` before the gateway starts, so a fresh volume gets the right config immediately.
+The `openclaw-configure` init service reads these env vars and runs `openclaw config set --batch-json` to write the following into `/home/node/.openclaw/openclaw.json`:
 
-**Trusted proxies** are set to the standard RFC 1918 private ranges (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`). This tells OpenClaw to trust `X-Forwarded-For` headers from Docker-internal IPs (Traefik), so it can see the real client IP instead of the container network address.
+- `gateway.mode = "local"` (standard for self-hosted)
+- `gateway.bind = "lan"` (required for Docker port publishing; also stops auto-reseed of `allowedOrigins`)
+- `gateway.auth.token` — from `OPENCLAW_GATEWAY_TOKEN`
+- `gateway.controlUi.allowedOrigins` — from `OPENCLAW_ALLOWED_ORIGINS` (comma-separated)
+- `gateway.trustedProxies` — from `OPENCLAW_TRUSTED_PROXIES` (comma-separated CIDRs)
+- `agents.defaults.model = "openrouter/auto"`
+
+**Trusted proxies** default to the RFC 1918 private ranges (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`). This tells OpenClaw to trust `X-Forwarded-For` headers from Docker-internal IPs (Traefik), so it can see the real client IP.
 
 ### Pairing a browser
 
@@ -118,26 +131,26 @@ Each new browser must be paired with the gateway:
 
 1. Open the Control UI (`https://chat.beshtawi.online` or `http://chat.localhost:8000`).
 2. Paste the `OPENCLAW_GATEWAY_TOKEN` from `.env` and click Connect.
-3. The UI will show "pairing required". On the server, approve it:
+3. The UI will show "pairing required". On the server, approve it via the CLI sidecar:
 
 ```bash
-docker exec openclaw openclaw devices list          # find the pending request ID
-docker exec openclaw openclaw devices approve <id>   # approve it
+docker compose run --rm openclaw-cli devices list          # find the pending request ID
+docker compose run --rm openclaw-cli devices approve <id>  # approve it
 ```
 
 ### Managing devices
 
 ```bash
-docker exec openclaw openclaw devices list     # list all paired/pending devices
-docker exec openclaw openclaw devices remove   # remove a paired device
-docker exec openclaw openclaw devices revoke   # revoke a device token
+docker compose run --rm openclaw-cli devices list     # list all paired/pending devices
+docker compose run --rm openclaw-cli devices remove   # remove a paired device
+docker compose run --rm openclaw-cli devices revoke   # revoke a device token
 ```
 
 ### Notes
 
-- All OpenClaw config is stored in the `openclaw_config` Docker volume at `/home/node/.openclaw/`.
-- The entrypoint runs as root to fix volume permissions (`chown`), seeds `openclaw.json` from env vars, then drops to the `node` user for the gateway process.
-- Use `-u node` when running `openclaw config set` via `docker exec` so writes go to the correct config file (not `/root/.openclaw/`).
+- All OpenClaw state lives in the `openclaw_config` Docker volume at `/home/node/.openclaw/`.
+- `openclaw-init` chowns the named volume to uid 1000 on every `up` (named volumes are created root-owned; the gateway image runs as `node`).
+- `openclaw-cli` shares the gateway's network namespace via `network_mode: "service:openclaw-gateway"` so CLI commands can reach the gateway on `127.0.0.1:18789`.
 
 ## Adding a New Service
 

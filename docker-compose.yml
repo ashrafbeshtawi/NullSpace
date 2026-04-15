@@ -114,47 +114,85 @@ services:
 
   # --- App Services ---
 
-  openclaw:
+  # One-shot: chown the named volume to uid 1000 (node) before the gateway starts.
+  # Named volumes are created root-owned; the gateway image runs as the node user.
+  openclaw-init:
+    image: alpine:3
+    container_name: openclaw-init
+    command: ["sh", "-c", "chown -R 1000:1000 /home/node/.openclaw"]
+    volumes:
+      - openclaw_config:/home/node/.openclaw
+    restart: "no"
+
+  # One-shot: seed gateway config from env vars via the official CLI.
+  # Runs on every `up` (idempotent). Writes gateway.auth.token, allowed origins,
+  # trusted proxies, default model, and pins gateway.mode=local + gateway.bind=lan
+  # (per docs — prevents auto-reseed of allowedOrigins).
+  openclaw-configure:
     image: ghcr.io/openclaw/openclaw:latest
-    container_name: openclaw
-    user: "0:0"
-    entrypoint:
-      - /bin/sh
-      - -c
+    container_name: openclaw-configure
+    entrypoint: ["/bin/sh", "-c"]
+    command:
       - |
-        chown -R node:node /home/node/.openclaw
-        CFG=/home/node/.openclaw/openclaw.json
-        node -e "
-          const fs = require('fs');
-          const cfg = fs.existsSync('$${CFG}') ? JSON.parse(fs.readFileSync('$${CFG}','utf8')) : {};
-          cfg.gateway = cfg.gateway || {};
-          cfg.gateway.auth = cfg.gateway.auth || {};
-          if (process.env.OPENCLAW_GATEWAY_TOKEN) cfg.gateway.auth.token = process.env.OPENCLAW_GATEWAY_TOKEN;
-          cfg.gateway.controlUi = cfg.gateway.controlUi || {};
+        BATCH=$$(node -e "
           const origins = (process.env.OPENCLAW_ALLOWED_ORIGINS || '').split(',').filter(Boolean);
-          if (origins.length) cfg.gateway.controlUi.allowedOrigins = origins;
           const proxies = (process.env.OPENCLAW_TRUSTED_PROXIES || '').split(',').filter(Boolean);
-          if (proxies.length) cfg.gateway.trustedProxies = proxies;
-          cfg.agents = cfg.agents || {};
-          cfg.agents.defaults = cfg.agents.defaults || {};
-          if (process.env.OPENCLAW_DEFAULT_MODEL) cfg.agents.defaults.model = process.env.OPENCLAW_DEFAULT_MODEL;
-          fs.writeFileSync('$${CFG}', JSON.stringify(cfg, null, 2));
-        "
-        chown node:node $${CFG}
-        exec su node -s /bin/sh -c "docker-entrypoint.sh node openclaw.mjs gateway --allow-unconfigured"
+          console.log(JSON.stringify([
+            {path: 'gateway.mode', value: 'local'},
+            {path: 'gateway.bind', value: 'lan'},
+            {path: 'gateway.auth.token', value: process.env.OPENCLAW_GATEWAY_TOKEN},
+            {path: 'gateway.controlUi.allowedOrigins', value: origins},
+            {path: 'gateway.trustedProxies', value: proxies},
+            {path: 'agents.defaults.model', value: 'openrouter/auto'},
+          ]));
+        ")
+        openclaw config set --batch-json "$$BATCH"
     environment:
-      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
       - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
-      - OPENCLAW_SANDBOX=1
-      - OPENCLAW_DEFAULT_MODEL=openrouter/auto
       - OPENCLAW_TRUSTED_PROXIES=10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
     volumes:
       - openclaw_config:/home/node/.openclaw
+    depends_on:
+      openclaw-init:
+        condition: service_completed_successfully
+    restart: "no"
+
+  openclaw-gateway:
+    image: ghcr.io/openclaw/openclaw:latest
+    container_name: openclaw-gateway
+    environment:
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - OPENCLAW_SANDBOX=1
+    volumes:
+      - openclaw_config:/home/node/.openclaw
+    depends_on:
+      openclaw-configure:
+        condition: service_completed_successfully
     labels:
       - "traefik.enable=true"
       - "traefik.http.services.openclaw.loadbalancer.server.port=18789"
     networks:
       - public-web
+
+  # Sidecar for post-start CLI commands (devices list/approve, config get, etc.).
+  # Shares the gateway's network namespace so it can reach 127.0.0.1:18789.
+  # Profile-gated — doesn't start with `docker compose up`; invoke with
+  # `docker compose run --rm openclaw-cli <command>`.
+  openclaw-cli:
+    image: ghcr.io/openclaw/openclaw:latest
+    container_name: openclaw-cli
+    entrypoint: ["openclaw"]
+    network_mode: "service:openclaw-gateway"
+    volumes:
+      - openclaw_config:/home/node/.openclaw
+    depends_on:
+      - openclaw-gateway
+    profiles: ["cli"]
+    cap_drop:
+      - NET_RAW
+      - NET_ADMIN
+    security_opt:
+      - no-new-privileges:true
 
   main-app:
     build: ./services/default
