@@ -124,49 +124,17 @@ services:
       - openclaw_config:/home/node/.openclaw
     restart: "no"
 
-  # One-shot: seed gateway config from env vars via the official CLI.
-  # Runs on every `up` (idempotent). Writes gateway.auth.token, allowed origins,
-  # trusted proxies, default model, and pins gateway.mode=local + gateway.bind=lan
-  # (per docs — prevents auto-reseed of allowedOrigins).
-  openclaw-configure:
-    image: ghcr.io/openclaw/openclaw:latest
-    container_name: openclaw-configure
-    entrypoint: ["/bin/sh", "-c"]
-    command:
-      - |
-        BATCH=$$(node -e "
-          const origins = (process.env.OPENCLAW_ALLOWED_ORIGINS || '').split(',').filter(Boolean);
-          const proxies = (process.env.OPENCLAW_TRUSTED_PROXIES || '').split(',').filter(Boolean);
-          console.log(JSON.stringify([
-            {path: 'gateway.mode', value: 'local'},
-            {path: 'gateway.bind', value: 'lan'},
-            {path: 'gateway.auth.token', value: process.env.OPENCLAW_GATEWAY_TOKEN},
-            {path: 'gateway.controlUi.allowedOrigins', value: origins},
-            {path: 'gateway.trustedProxies', value: proxies},
-            {path: 'agents.defaults.model', value: 'openrouter/auto'},
-          ]));
-        ")
-        openclaw config set --batch-json "$$BATCH"
-    environment:
-      - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
-      - OPENCLAW_TRUSTED_PROXIES=10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
-    volumes:
-      - openclaw_config:/home/node/.openclaw
-    depends_on:
-      openclaw-init:
-        condition: service_completed_successfully
-    restart: "no"
-
   openclaw-gateway:
     image: ghcr.io/openclaw/openclaw:latest
     container_name: openclaw-gateway
     environment:
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
       - OPENCLAW_SANDBOX=1
     volumes:
       - openclaw_config:/home/node/.openclaw
     depends_on:
-      openclaw-configure:
+      openclaw-init:
         condition: service_completed_successfully
     labels:
       - "traefik.enable=true"
@@ -183,6 +151,8 @@ services:
     container_name: openclaw-cli
     entrypoint: ["openclaw"]
     network_mode: "service:openclaw-gateway"
+    environment:
+      - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
     volumes:
       - openclaw_config:/home/node/.openclaw
     depends_on:
