@@ -146,7 +146,7 @@ services:
     volumes:
       - openclaw_config:/home/node/.openclaw
       - /var/run/docker.sock:/var/run/docker.sock
-      - ./services/openclaw-gateway/workspace/TOOLS.md:/home/node/.openclaw/workspace/TOOLS.md:ro
+      - ./services/openclaw-gateway/workspace/TOOLS.md:/home/node/.openclaw/workspace/skills/TOOLS.md:ro
     depends_on:
       openclaw-init:
         condition: service_completed_successfully
