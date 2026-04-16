@@ -1,6 +1,6 @@
 ---
-name: sandbox_tools
-description: Available tools and runtimes in the execution environment.
+name: available_tools
+description: Pre-installed tools and runtimes available in this environment.
 ---
 
 # Available Tools
