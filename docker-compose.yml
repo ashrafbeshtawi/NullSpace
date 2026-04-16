@@ -124,16 +124,7 @@ services:
       - openclaw_config:/home/node/.openclaw
     restart: "no"
 
-  # Build-only: custom sandbox image with tools (ffmpeg, whisper, python, etc.).
-  # Not a running service — just builds the image for the gateway to spawn.
-  openclaw-sandbox:
-    build: ./services/openclaw-sandbox
-    image: openclaw-sandbox:custom
-    profiles: ["build"]
-
   # One-shot: runs onboarding (first time) + applies config overlays (every time).
-  # Onboarding sets up OpenRouter auth, gateway token SecretRef, gateway.bind=lan.
-  # Config overlay sets allowed origins, trusted proxies, and sandbox settings.
   openclaw-configure:
     image: ghcr.io/openclaw/openclaw:latest
     container_name: openclaw-configure
@@ -154,14 +145,11 @@ services:
     build: ./services/openclaw-gateway
     image: openclaw-gateway:custom
     container_name: openclaw-gateway
-    group_add:
-      - "${DOCKER_GID:-0}"
     environment:
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
       - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
     volumes:
       - openclaw_config:/home/node/.openclaw
-      - /var/run/docker.sock:/var/run/docker.sock
       - ./services/openclaw-gateway/workspace/skills:/home/node/.openclaw/workspace/skills:ro
     depends_on:
       openclaw-configure:

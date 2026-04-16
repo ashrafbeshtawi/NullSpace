@@ -19,5 +19,4 @@ jobs:
             cd /opt/NullSpace
             git pull origin main
             docker compose -f docker-compose.yml -f docker-compose.prod.yml down --remove-orphans
-            docker compose -f docker-compose.yml -f docker-compose.prod.yml build openclaw-sandbox
             docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d

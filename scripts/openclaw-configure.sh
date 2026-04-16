@@ -1,9 +1,6 @@
 #!/bin/sh
 set -e
 
-CONFIG_DIR="/home/node/.openclaw"
-CONFIG_FILE="$CONFIG_DIR/openclaw.json"
-
 # Run onboarding if not done yet (checks for wizard marker)
 if ! openclaw config get wizard.lastRunAt 2>/dev/null | grep -q .; then
   echo "[openclaw-configure] Running first-time onboarding..."
@@ -27,12 +24,6 @@ BATCH=$(node -e "
   console.log(JSON.stringify([
     {path: 'gateway.controlUi.allowedOrigins', value: origins},
     {path: 'gateway.trustedProxies', value: proxies},
-    {path: 'agents.defaults.sandbox.mode', value: 'all'},
-    {path: 'agents.defaults.sandbox.scope', value: 'agent'},
-    {path: 'agents.defaults.sandbox.backend', value: 'docker'},
-    {path: 'agents.defaults.sandbox.docker.image', value: 'openclaw-sandbox:custom'},
-    {path: 'agents.defaults.sandbox.docker.readOnlyRoot', value: false},
-    {path: 'agents.defaults.sandbox.workspaceAccess', value: 'rw'},
   ]));
 ")
 

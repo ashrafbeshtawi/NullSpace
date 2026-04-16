@@ -1,11 +1,10 @@
 ---
 name: sandbox_tools
-description: Available tools and runtimes in the sandbox execution environment.
+description: Available tools and runtimes in the execution environment.
 ---
 
-# Sandbox Environment
+# Available Tools
 
-All commands run inside a Docker sandbox container based on Debian Bookworm.
 The following tools are pre-installed — use them directly without installing anything.
 
 ## Shell & System
@@ -20,9 +19,6 @@ The following tools are pre-installed — use them directly without installing a
 - **Use `python3`** (not `python`)
 - `pip3` — package manager
 
-## Node.js
-- `nodejs`, `npm` — JavaScript runtime
-
 ## Audio & Video
 - `ffmpeg` — audio/video conversion, extraction, transcoding
 - `whisper` — OpenAI Whisper speech-to-text transcription
@@ -33,6 +29,6 @@ The following tools are pre-installed — use them directly without installing a
 - `pdftotext`, `pdfinfo` (poppler-utils) — PDF text extraction
 
 ## Important Notes
-- The workspace at `/workspace` is writable — use it for temporary files.
-- The sandbox has **no network access** by default.
+- Use `python3` not `python`.
 - Do not attempt to install packages with `apt` or `sudo` — everything you need is pre-installed.
+- Commands run directly on the gateway host.

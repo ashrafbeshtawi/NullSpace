@@ -1,7 +1,18 @@
 FROM ghcr.io/openclaw/openclaw:latest
 
 USER root
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends docker.io \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    # Python
+    python3 python3-pip python3-venv \
+    # Audio/video
+    ffmpeg \
+    # Text/document processing
+    poppler-utils \
+    # Shell utilities
+    curl wget git jq procps less file unzip ca-certificates \
     && rm -rf /var/lib/apt/lists/*
+
+# Install openai-whisper for speech-to-text
+RUN pip3 install --break-system-packages openai-whisper
+
 USER node
