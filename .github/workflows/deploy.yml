@@ -14,7 +14,7 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           password: ${{ secrets.VPS_PASSWORD }}
-          command_timeout: 10m
+          command_timeout: 20m
           script: |
             cd /opt/NullSpace
             git pull origin main
