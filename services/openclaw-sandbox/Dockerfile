@@ -20,5 +20,6 @@ RUN pip3 install --break-system-packages openai-whisper
 
 # Create a non-root user matching OpenClaw's expectations
 RUN useradd -m -s /bin/bash -u 1000 sandbox
+RUN mkdir -p /workspace && chown sandbox:sandbox /workspace
 USER sandbox
 WORKDIR /workspace
