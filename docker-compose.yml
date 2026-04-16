@@ -132,7 +132,8 @@ services:
     profiles: ["build"]
 
   openclaw-gateway:
-    image: ghcr.io/openclaw/openclaw:latest
+    build: ./services/openclaw-gateway
+    image: openclaw-gateway:custom
     container_name: openclaw-gateway
     # Add node user to the host's docker group so it can spawn sandbox containers.
     # DOCKER_GID should match the host's docker group ID (run: stat -c '%g' /var/run/docker.sock).
