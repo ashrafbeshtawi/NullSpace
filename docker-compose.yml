@@ -131,24 +131,40 @@ services:
     image: openclaw-sandbox:custom
     profiles: ["build"]
 
+  # One-shot: runs onboarding (first time) + applies config overlays (every time).
+  # Onboarding sets up OpenRouter auth, gateway token SecretRef, gateway.bind=lan.
+  # Config overlay sets allowed origins, trusted proxies, and sandbox settings.
+  openclaw-configure:
+    image: ghcr.io/openclaw/openclaw:latest
+    container_name: openclaw-configure
+    entrypoint: ["/bin/sh", "/scripts/openclaw-configure.sh"]
+    environment:
+      - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - OPENCLAW_TRUSTED_PROXIES=10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
+    volumes:
+      - openclaw_config:/home/node/.openclaw
+      - ./scripts/openclaw-configure.sh:/scripts/openclaw-configure.sh:ro
+    depends_on:
+      openclaw-init:
+        condition: service_completed_successfully
+    restart: "no"
+
   openclaw-gateway:
     build: ./services/openclaw-gateway
     image: openclaw-gateway:custom
     container_name: openclaw-gateway
-    # Add node user to the host's docker group so it can spawn sandbox containers.
-    # DOCKER_GID should match the host's docker group ID (run: stat -c '%g' /var/run/docker.sock).
     group_add:
       - "${DOCKER_GID:-0}"
     environment:
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
       - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
-      - OPENCLAW_SANDBOX=1
     volumes:
       - openclaw_config:/home/node/.openclaw
       - /var/run/docker.sock:/var/run/docker.sock
       - ./services/openclaw-gateway/workspace/skills:/home/node/.openclaw/workspace/skills:ro
     depends_on:
-      openclaw-init:
+      openclaw-configure:
         condition: service_completed_successfully
     labels:
       - "traefik.enable=true"
