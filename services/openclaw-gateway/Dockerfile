@@ -12,8 +12,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl wget git jq procps less file unzip ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Install openai-whisper and pre-download the base model
+# Install openai-whisper and pre-download the base model to a shared cache
 RUN pip3 install --break-system-packages openai-whisper
-RUN python3 -c "import whisper; whisper.load_model('base')"
+ENV XDG_CACHE_HOME=/opt/whisper-cache
+RUN mkdir -p /opt/whisper-cache && python3 -c "import whisper; whisper.load_model('base')" && chmod -R 755 /opt/whisper-cache
 
 USER node
