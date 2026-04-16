@@ -22,13 +22,19 @@ The following tools are pre-installed — use them directly without installing a
 ## Audio & Video
 - `ffmpeg` — audio/video conversion, extraction, transcoding
 - `whisper` — OpenAI Whisper speech-to-text transcription
-  - Usage: `whisper audio.mp3 --model base`
-  - Supports: mp3, wav, m4a, flac, ogg, webm
+  - Usage: `whisper <file> --model base --language <lang>`
+  - The `base` model is pre-downloaded and ready to use.
+  - Supports: mp3, wav, m4a, flac, ogg, opus, webm
 
 ## Documents
 - `pdftotext`, `pdfinfo` (poppler-utils) — PDF text extraction
 
+## Media Files
+- Inbound media (audio, images, files sent by the user) is stored at:
+  `~/.openclaw/workspace/media/inbound/`
+- When transcribing audio, use the full path to the file in that directory.
+
 ## Important Notes
 - Use `python3` not `python`.
 - Do not attempt to install packages with `apt` or `sudo` — everything you need is pre-installed.
-- Commands run directly on the gateway host.
+- Commands run directly on the gateway.
