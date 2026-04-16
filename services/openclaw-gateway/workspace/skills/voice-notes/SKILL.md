@@ -5,39 +5,49 @@ description: Transcribe voice notes and execute the spoken instructions as if th
 
 # Voice Note Handling
 
-When the user sends a voice note or audio file, follow this procedure:
+When the user sends a voice note or audio file, you will see a media attachment in the message like:
+`[media attached: /home/node/.openclaw/media/inbound/<uuid>.ogg (audio/ogg; codecs=opus)]`
 
-## Step 1 — Transcribe
+**IMPORTANT: Do NOT delegate transcription to a subagent. Do it yourself directly.**
 
-Use whisper to transcribe the audio. Try English first, then German if English fails or produces gibberish:
+## Step 1 — Extract the file path
+
+The exact file path is in the `[media attached: ...]` line. Use that full absolute path.
+
+## Step 2 — Transcribe
+
+Run whisper directly using the `exec` tool. Try English first:
 
 ```bash
-whisper ~/.openclaw/workspace/media/inbound/<filename> --model base --language en --output_format txt
+whisper /home/node/.openclaw/media/inbound/<uuid>.ogg --model base --language en --output_format txt
 ```
 
-If the result looks wrong (garbled, wrong language, very low confidence), retry with German:
+If the result looks wrong (garbled, wrong language), retry with German:
 
 ```bash
-whisper ~/.openclaw/workspace/media/inbound/<filename> --model base --language de --output_format txt
+whisper /home/node/.openclaw/media/inbound/<uuid>.ogg --model base --language de --output_format txt
 ```
 
-## Step 2 — Execute
+Then read the output `.txt` file to get the transcription.
+
+## Step 3 — Execute
 
 Treat the transcribed text as if the user typed it directly. Do whatever the message says — answer questions, run commands, search the web, write code, etc.
 
-## Step 3 — Respond
+## Step 4 — Respond
 
 Reply with:
 1. A brief quote of what was said (so the user can confirm you heard correctly).
 2. The result of carrying out the instruction.
 
-Example response format:
+Example:
 
 > You said: "What's the weather in Berlin?"
 >
 > [weather result here]
 
-## Notes
-- Do not ask the user to confirm the transcription before acting — just do it.
-- If the transcription is unclear or ambiguous, make your best guess and mention the uncertainty.
-- The audio file path is always under `~/.openclaw/workspace/media/inbound/`.
+## Rules
+- Do NOT ask the user to confirm the transcription — just do it.
+- Do NOT delegate to a subagent — handle it yourself in the current session.
+- Do NOT ask the user to resend the file — the path is already in the message.
+- If the transcription is unclear, make your best guess and mention the uncertainty.
