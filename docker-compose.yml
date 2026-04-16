@@ -124,15 +124,27 @@ services:
       - openclaw_config:/home/node/.openclaw
     restart: "no"
 
+  # Build-only: custom sandbox image with tools (ffmpeg, whisper, python, etc.).
+  # Not a running service — just builds the image for the gateway to spawn.
+  openclaw-sandbox:
+    build: ./services/openclaw-sandbox
+    image: openclaw-sandbox:custom
+    profiles: ["build"]
+
   openclaw-gateway:
     image: ghcr.io/openclaw/openclaw:latest
     container_name: openclaw-gateway
+    # Add node user to the host's docker group so it can spawn sandbox containers.
+    # DOCKER_GID should match the host's docker group ID (run: stat -c '%g' /var/run/docker.sock).
+    group_add:
+      - "${DOCKER_GID:-0}"
     environment:
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
       - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
       - OPENCLAW_SANDBOX=1
     volumes:
       - openclaw_config:/home/node/.openclaw
+      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       openclaw-init:
         condition: service_completed_successfully

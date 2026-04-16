@@ -175,6 +175,35 @@ docker volume rm nullspace_openclaw_config
 # Then re-run the First-time setup steps above.
 ```
 
+### Agent sandbox
+
+The gateway runs with `OPENCLAW_SANDBOX=1` and the Docker socket mounted. When the agent needs to run shell commands, write files, or execute code, it spawns an isolated Docker container (the "sandbox") instead of running in the gateway itself.
+
+A custom sandbox image (`openclaw-sandbox:custom`) is built from `services/openclaw-sandbox/Dockerfile`. It includes `ffmpeg`, `python3`, `whisper` (speech-to-text), `git`, `curl`, `jq`, and `nodejs`.
+
+**Build the sandbox image** (once per host, and after any Dockerfile change):
+
+```bash
+docker compose build openclaw-sandbox
+```
+
+**Configure during onboarding** — when the wizard asks about sandbox, enable it. Then set the custom image:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+  run --rm --no-deps --entrypoint openclaw openclaw-gateway \
+  config set agents.defaults.sandbox.docker.image '"openclaw-sandbox:custom"'
+```
+
+**`DOCKER_GID`** — the gateway needs access to the Docker socket to spawn sandbox containers. Set `DOCKER_GID` in `.env` to the host's docker group ID so the `node` user gets the right group membership:
+
+```bash
+# Linux:
+stat -c '%g' /var/run/docker.sock   # typically 999 or 998
+# macOS:
+# use 0
+```
+
 ### Notes
 
 - All OpenClaw state lives in the `openclaw_config` Docker volume at `/home/node/.openclaw/`.
