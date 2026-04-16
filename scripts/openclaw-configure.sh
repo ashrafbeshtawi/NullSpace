@@ -24,6 +24,7 @@ BATCH=$(node -e "
   console.log(JSON.stringify([
     {path: 'gateway.controlUi.allowedOrigins', value: origins},
     {path: 'gateway.trustedProxies', value: proxies},
+    {path: 'agents.defaults.sandbox.mode', value: 'off'},
   ]));
 ")
 
