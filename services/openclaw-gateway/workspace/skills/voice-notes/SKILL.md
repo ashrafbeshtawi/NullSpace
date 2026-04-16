@@ -1,6 +1,6 @@
 ---
 name: voice_notes
-description: Transcribe voice notes and execute the spoken instructions as if the user had typed them.
+description: Transcribe voice notes using the exec tool to run the whisper CLI, then execute the spoken instructions.
 ---
 
 # Voice Note Handling
@@ -8,33 +8,36 @@ description: Transcribe voice notes and execute the spoken instructions as if th
 When the user sends a voice note or audio file, you will see a media attachment in the message like:
 `[media attached: /home/node/.openclaw/media/inbound/<uuid>.ogg (audio/ogg; codecs=opus)]`
 
-**IMPORTANT: Do NOT delegate transcription to a subagent. Do it yourself directly.**
+## How to transcribe
 
-## Step 1 — Extract the file path
+Whisper is a **command-line program** installed on this system. It is NOT an API tool.
+You MUST use the `exec` tool to run it as a shell command. Do NOT try to call any API or tool named "whisper" or "openai_whisper".
 
-The exact file path is in the `[media attached: ...]` line. Use that full absolute path.
+### Step 1 — Extract the file path
 
-## Step 2 — Transcribe
+The exact file path is in the `[media attached: ...]` line. Copy the full absolute path.
 
-Run whisper directly using the `exec` tool. Try English first:
+### Step 2 — Run whisper via exec
 
-```bash
-whisper /home/node/.openclaw/media/inbound/<uuid>.ogg --model base --language en --output_format txt
+Use the `exec` tool to run this shell command (replace the path with the actual one):
+
+```
+exec: whisper /home/node/.openclaw/media/inbound/<uuid>.ogg --model base --language en --output_format txt
 ```
 
-If the result looks wrong (garbled, wrong language), retry with German:
+If the output looks wrong (garbled text, wrong language), retry with German:
 
-```bash
-whisper /home/node/.openclaw/media/inbound/<uuid>.ogg --model base --language de --output_format txt
+```
+exec: whisper /home/node/.openclaw/media/inbound/<uuid>.ogg --model base --language de --output_format txt
 ```
 
-Then read the output `.txt` file to get the transcription.
+Whisper prints the transcription to stdout. Use that output directly.
 
-## Step 3 — Execute
+### Step 3 — Execute the instruction
 
-Treat the transcribed text as if the user typed it directly. Do whatever the message says — answer questions, run commands, search the web, write code, etc.
+Treat the transcribed text as if the user typed it. Do whatever the message says — answer questions, run commands, search the web, write code, etc.
 
-## Step 4 — Respond
+### Step 4 — Respond
 
 Reply with:
 1. A brief quote of what was said (so the user can confirm you heard correctly).
@@ -47,7 +50,9 @@ Example:
 > [weather result here]
 
 ## Rules
+- Use the `exec` tool to run `whisper` as a shell command. There is NO whisper API tool.
 - Do NOT ask the user to confirm the transcription — just do it.
 - Do NOT delegate to a subagent — handle it yourself in the current session.
 - Do NOT ask the user to resend the file — the path is already in the message.
+- Do NOT say you cannot process audio — you CAN, using the exec tool.
 - If the transcription is unclear, make your best guess and mention the uncertainty.
