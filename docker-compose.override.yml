@@ -52,9 +52,11 @@ services:
   ollama:
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.ollama.rule=Host(`ollama.localhost`)"
-      - "traefik.http.routers.ollama.entrypoints=web"
-      - "traefik.http.services.ollama.loadbalancer.server.port=11434"
+      - "traefik.http.services.ollama-api.loadbalancer.server.port=11434"
+      - "traefik.http.routers.dogeclaw.rule=Host(`dogeclaw.localhost`)"
+      - "traefik.http.routers.dogeclaw.entrypoints=web"
+      - "traefik.http.routers.dogeclaw.service=dogeclaw"
+      - "traefik.http.services.dogeclaw.loadbalancer.server.port=3000"
 
   main-app:
     labels:

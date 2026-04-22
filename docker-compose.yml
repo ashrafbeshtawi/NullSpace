@@ -117,11 +117,24 @@ services:
   ollama:
     build: ./services/ollama
     container_name: ollama
+    environment:
+      - DOGECLAW_OLLAMA_URL=${DOGECLAW_OLLAMA_URL:-http://127.0.0.1:11434}
+      - DOGECLAW_MODEL=${DOGECLAW_MODEL:-gemma4:e2b}
+      - DOGECLAW_THINK=${DOGECLAW_THINK:-false}
+      - DOGECLAW_PORT=${DOGECLAW_PORT:-3000}
+      - DOGECLAW_WEB_USER=${DOGECLAW_WEB_USER:-admin}
+      - DOGECLAW_WEB_PASSWORD=${DOGECLAW_WEB_PASSWORD:-changeme}
+      - DOGECLAW_WEB_SECRET=${DOGECLAW_WEB_SECRET:-dogeclaw-change-me}
+      - DOGECLAW_DATABASE_URL=${DOGECLAW_DATABASE_URL:-}
+      - DOGECLAW_TELEGRAM_MODE=${DOGECLAW_TELEGRAM_MODE:-polling}
+      - DOGECLAW_WEBHOOK_URL=${DOGECLAW_WEBHOOK_URL:-}
     volumes:
       - ollama_data:/root/.ollama
+      - agent_workspace:/root/agent-workspace
     labels:
       - "traefik.enable=true"
-      - "traefik.http.services.ollama.loadbalancer.server.port=11434"
+      - "traefik.http.services.ollama-api.loadbalancer.server.port=11434"
+      - "traefik.http.services.dogeclaw.loadbalancer.server.port=3000"
       - "traefik.docker.network=nullspace_public-web"
     networks:
       - public-web
@@ -149,3 +162,4 @@ volumes:
   portainer_data:
   uptime_kuma_data:
   ollama_data:
+  agent_workspace:

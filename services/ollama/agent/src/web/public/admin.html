@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DogeClaw - Admin</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, sans-serif; background: #060609; color: #e2e8f0; min-height: 100vh; padding: 2rem; }
+        .header { display: flex; align-items: center; gap: 1rem; margin-bottom: 2rem; }
+        .header h1 { font-size: 1.5rem; font-weight: 800; }
+        .header a { color: #34d399; font-size: 0.85rem; text-decoration: none; }
+        .section { margin-bottom: 2.5rem; }
+        .section h2 { font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.75rem; }
+        .section h2 button { background: #34d399; color: #060609; border: none; border-radius: 6px; padding: 0.3rem 0.7rem; font-size: 0.75rem; cursor: pointer; font-weight: 700; }
+        table { width: 100%; border-collapse: collapse; background: #0c0c14; border-radius: 10px; overflow: hidden; }
+        th, td { padding: 0.6rem 1rem; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 0.85rem; }
+        th { color: #64748b; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        td .actions { display: flex; gap: 0.5rem; }
+        td .actions button { background: transparent; border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; color: #94a3b8; padding: 0.2rem 0.5rem; font-size: 0.75rem; cursor: pointer; }
+        td .actions button:hover { border-color: rgba(255,255,255,0.3); color: #e2e8f0; }
+        td .actions button.danger { color: #f87171; }
+        .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; align-items: center; justify-content: center; }
+        .modal-overlay.open { display: flex; }
+        .modal { background: #0c0c14; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 1.5rem; width: 100%; max-width: 500px; max-height: 90vh; overflow-y: auto; }
+        .modal h3 { margin-bottom: 1rem; font-size: 1rem; }
+        .modal label { display: block; font-size: 0.8rem; color: #94a3b8; margin-bottom: 0.3rem; margin-top: 0.75rem; }
+        .modal input, .modal select, .modal textarea { width: 100%; padding: 0.5rem 0.7rem; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; background: #060609; color: #e2e8f0; font-size: 0.85rem; font-family: inherit; }
+        .modal textarea { min-height: 80px; resize: vertical; }
+        .modal .toggle { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.3rem; }
+        .modal .toggle input { width: auto; }
+        .modal .btn-row { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1.25rem; }
+        .modal .btn-row button { padding: 0.5rem 1rem; border-radius: 6px; border: none; cursor: pointer; font-size: 0.85rem; font-weight: 600; }
+        .modal .btn-cancel { background: transparent; border: 1px solid rgba(255,255,255,0.1); color: #94a3b8; }
+        .modal .btn-save { background: #34d399; color: #060609; }
+        .badge { font-size: 0.7rem; padding: 0.15rem 0.4rem; border-radius: 4px; font-weight: 600; }
+        .badge-on { background: rgba(52,211,153,0.15); color: #34d399; }
+        .badge-off { background: rgba(248,113,113,0.15); color: #f87171; }
+        .hint { font-size: 0.75rem; color: #64748b; margin-top: 0.3rem; }
+        .hint code { color: #34d399; background: rgba(52,211,153,0.1); padding: 0.1rem 0.3rem; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>DogeClaw Admin</h1>
+        <a href="/">&larr; Back to Chat</a>
+    </div>
+
+    <div class="section">
+        <h2>Agents <button onclick="openAgentModal()">+ New Agent</button></h2>
+        <table>
+            <thead><tr><th>Name</th><th>Model</th><th>Think</th><th>System Prompt</th><th></th></tr></thead>
+            <tbody id="agentsTable"></tbody>
+        </table>
+    </div>
+
+    <div class="section">
+        <h2>Channels <button onclick="openChannelModal()">+ New Channel</button></h2>
+        <table>
+            <thead><tr><th>Name</th><th>Type</th><th>Agent</th><th>Mode</th><th>Enabled</th><th></th></tr></thead>
+            <tbody id="channelsTable"></tbody>
+        </table>
+        <div class="hint" style="margin-top:0.75rem" id="telegramModeHint"></div>
+    </div>
+
+    <div class="modal-overlay" id="agentModal">
+        <div class="modal">
+            <h3 id="agentModalTitle">New Agent</h3>
+            <input type="hidden" id="agentId">
+            <label>Name</label>
+            <input type="text" id="agentName" placeholder="my-agent">
+            <label>Model</label>
+            <input type="text" id="agentModel" placeholder="gemma4:e2b">
+            <div class="toggle"><input type="checkbox" id="agentThink"><label for="agentThink">Enable thinking</label></div>
+            <label>System Prompt</label>
+            <textarea id="agentPrompt" placeholder="You are a helpful assistant..."></textarea>
+            <div class="btn-row">
+                <button class="btn-cancel" onclick="closeModal('agentModal')">Cancel</button>
+                <button class="btn-save" onclick="saveAgent()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="channelModal">
+        <div class="modal">
+            <h3 id="channelModalTitle">New Channel</h3>
+            <input type="hidden" id="channelId">
+            <label>Name</label>
+            <input type="text" id="channelName" placeholder="my-telegram-bot">
+            <div class="hint">Used as webhook path: <code>/webhook/&lt;name&gt;</code></div>
+            <label>Type</label>
+            <select id="channelType"><option value="telegram">Telegram</option></select>
+            <label>Agent</label>
+            <select id="channelAgent"></select>
+            <label>Bot Token</label>
+            <input type="text" id="channelToken" placeholder="123456:ABC-DEF...">
+            <div class="hint" id="webhookHint"></div>
+            <label>Allowed Users (comma-separated Telegram user IDs)</label>
+            <input type="text" id="channelUsers" placeholder="123456789,987654321">
+            <label>Response Mode</label>
+            <select id="channelMode">
+                <option value="immediate">Immediate</option>
+                <option value="periodic">Periodic</option>
+            </select>
+            <label>Interval (for periodic, e.g. 30m, 1h)</label>
+            <input type="text" id="channelInterval" placeholder="30m">
+            <div class="toggle"><input type="checkbox" id="channelEnabled" checked><label for="channelEnabled">Enabled</label></div>
+            <div class="btn-row">
+                <button class="btn-cancel" onclick="closeModal('channelModal')">Cancel</button>
+                <button class="btn-save" onclick="saveChannel()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let agents = [], channels = [], siteConfig = {};
+
+        async function api(method, path, body) {
+            const opts = { method, headers: { 'Content-Type': 'application/json' } };
+            if (body) opts.body = JSON.stringify(body);
+            const res = await fetch(path, opts);
+            if (res.status === 401) return window.location.href = '/login';
+            return res.json();
+        }
+
+        async function load() {
+            const [a, c, cfg] = await Promise.all([
+                api('GET', '/api/agents'),
+                api('GET', '/api/channels'),
+                api('GET', '/api/config'),
+            ]);
+            agents = a.agents; channels = c.channels; siteConfig = cfg;
+            renderAgents(); renderChannels();
+
+            const modeHint = document.getElementById('telegramModeHint');
+            if (siteConfig.telegramMode === 'webhook' && siteConfig.webhookUrl) {
+                modeHint.innerHTML = 'Telegram mode: <strong>webhook</strong> &mdash; base URL: <code>' + esc(siteConfig.webhookUrl) + '</code>';
+            } else {
+                modeHint.innerHTML = 'Telegram mode: <strong>polling</strong> (dev) &mdash; no webhook URL needed. Set <code>DOGECLAW_TELEGRAM_MODE=webhook</code> and <code>DOGECLAW_WEBHOOK_URL</code> for production.';
+            }
+        }
+
+        function renderAgents() {
+            document.getElementById('agentsTable').innerHTML = agents.map(function(a) { return '<tr>'
+                + '<td><strong>' + esc(a.name) + '</strong></td>'
+                + '<td>' + esc(a.model) + '</td>'
+                + '<td><span class="badge ' + (a.think ? 'badge-on' : 'badge-off') + '">' + (a.think ? 'on' : 'off') + '</span></td>'
+                + '<td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(a.system_prompt) + '</td>'
+                + '<td class="actions"><button onclick="editAgent(' + a.id + ')">Edit</button>'
+                + (a.id !== 1 ? '<button class="danger" onclick="deleteAgent(' + a.id + ')">Delete</button>' : '')
+                + '</td></tr>';
+            }).join('');
+        }
+
+        function renderChannels() {
+            document.getElementById('channelsTable').innerHTML = channels.map(function(c) { return '<tr>'
+                + '<td><strong>' + esc(c.name) + '</strong></td>'
+                + '<td>' + esc(c.type) + '</td>'
+                + '<td>' + esc(c.agent_name) + '</td>'
+                + '<td>' + esc(c.response_mode) + (c.response_interval ? ' / ' + esc(c.response_interval) : '') + '</td>'
+                + '<td><span class="badge ' + (c.enabled ? 'badge-on' : 'badge-off') + '">' + (c.enabled ? 'on' : 'off') + '</span></td>'
+                + '<td class="actions"><button onclick="editChannel(' + c.id + ')">Edit</button>'
+                + '<button class="danger" onclick="deleteChannel(' + c.id + ')">Delete</button></td></tr>';
+            }).join('');
+            document.getElementById('channelAgent').innerHTML = agents.map(function(a) {
+                return '<option value="' + a.id + '">' + esc(a.name) + '</option>';
+            }).join('');
+        }
+
+        function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+        function findAgent(id) { return agents.find(function(a) { return a.id === id; }); }
+        function findChannel(id) { return channels.find(function(c) { return c.id === id; }); }
+
+        function openAgentModal(a) {
+            if (typeof a === 'number') a = findAgent(a);
+            document.getElementById('agentModalTitle').textContent = a ? 'Edit Agent' : 'New Agent';
+            document.getElementById('agentId').value = a ? a.id : '';
+            document.getElementById('agentName').value = a ? a.name : '';
+            document.getElementById('agentModel').value = a ? a.model : 'gemma4:e2b';
+            document.getElementById('agentThink').checked = a ? a.think : false;
+            document.getElementById('agentPrompt').value = a ? a.system_prompt : '';
+            document.getElementById('agentModal').classList.add('open');
+        }
+        function editAgent(id) { openAgentModal(id); }
+
+        async function saveAgent() {
+            var id = document.getElementById('agentId').value;
+            var body = {
+                name: document.getElementById('agentName').value,
+                model: document.getElementById('agentModel').value,
+                think: document.getElementById('agentThink').checked,
+                system_prompt: document.getElementById('agentPrompt').value,
+            };
+            if (id) await api('PUT', '/api/agents/' + id, body);
+            else await api('POST', '/api/agents', body);
+            closeModal('agentModal');
+            load();
+        }
+
+        async function deleteAgent(id) {
+            if (!confirm('Delete this agent?')) return;
+            await api('DELETE', '/api/agents/' + id);
+            load();
+        }
+
+        function updateWebhookHint() {
+            var hint = document.getElementById('webhookHint');
+            var name = document.getElementById('channelName').value;
+            if (siteConfig.telegramMode === 'webhook' && siteConfig.webhookUrl && name) {
+                hint.innerHTML = 'Webhook URL: <code>' + esc(siteConfig.webhookUrl) + '/webhook/' + esc(name) + '</code>';
+            } else if (siteConfig.telegramMode === 'polling') {
+                hint.textContent = 'Using polling mode (dev). No webhook URL needed.';
+            } else {
+                hint.textContent = 'Enter a channel name to see the webhook URL.';
+            }
+        }
+
+        function openChannelModal(c) {
+            if (typeof c === 'number') c = findChannel(c);
+            document.getElementById('channelModalTitle').textContent = c ? 'Edit Channel' : 'New Channel';
+            document.getElementById('channelId').value = c ? c.id : '';
+            document.getElementById('channelName').value = c ? c.name : '';
+            document.getElementById('channelType').value = c ? c.type : 'telegram';
+            document.getElementById('channelToken').value = c && c.config ? c.config.token || '' : '';
+            document.getElementById('channelUsers').value = c && c.config && c.config.allowed_users ? c.config.allowed_users.join(',') : '';
+            document.getElementById('channelMode').value = c ? c.response_mode : 'immediate';
+            document.getElementById('channelInterval').value = c ? c.response_interval || '' : '';
+            document.getElementById('channelEnabled').checked = c ? c.enabled !== false : true;
+            setTimeout(function() { if (c && c.agent_id) document.getElementById('channelAgent').value = c.agent_id; }, 0);
+            document.getElementById('channelModal').classList.add('open');
+            updateWebhookHint();
+        }
+        function editChannel(id) { openChannelModal(id); }
+
+        document.getElementById('channelName').addEventListener('input', updateWebhookHint);
+
+        async function saveChannel() {
+            var id = document.getElementById('channelId').value;
+            var body = {
+                name: document.getElementById('channelName').value,
+                type: document.getElementById('channelType').value,
+                agent_id: parseInt(document.getElementById('channelAgent').value),
+                config: {
+                    token: document.getElementById('channelToken').value,
+                    allowed_users: document.getElementById('channelUsers').value.split(',').map(Number).filter(Boolean),
+                },
+                response_mode: document.getElementById('channelMode').value,
+                response_interval: document.getElementById('channelInterval').value || null,
+                enabled: document.getElementById('channelEnabled').checked,
+            };
+            if (id) await api('PUT', '/api/channels/' + id, body);
+            else await api('POST', '/api/channels', body);
+            closeModal('channelModal');
+            load();
+        }
+
+        async function deleteChannel(id) {
+            if (!confirm('Delete this channel?')) return;
+            await api('DELETE', '/api/channels/' + id);
+            load();
+        }
+
+        function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+        load();
+    </script>
+</body>
+</html>

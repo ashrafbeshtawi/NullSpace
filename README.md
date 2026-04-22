@@ -33,7 +33,7 @@ Personal multi-service platform running on Docker with Traefik as a reverse prox
 | Service | URL | Description |
 |---------|-----|-------------|
 | Main Site | `beshtawi.online` | Landing page |
-| Ollama | `ollama.beshtawi.online` | Local LLM inference (basic auth) |
+| DogeClaw | `dogeclaw.beshtawi.online` | AI agent (Ollama-powered) |
 
 ### Infrastructure
 | Service | URL | Description |

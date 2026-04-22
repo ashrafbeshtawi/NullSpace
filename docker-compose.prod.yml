@@ -71,11 +71,14 @@ services:
   ollama:
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.ollama.rule=Host(`ollama.beshtawi.online`)"
-      - "traefik.http.routers.ollama.entrypoints=websecure"
-      - "traefik.http.routers.ollama.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.ollama.middlewares=auth"
-      - "traefik.http.services.ollama.loadbalancer.server.port=11434"
+      # Ollama API (internal, not publicly exposed)
+      - "traefik.http.services.ollama-api.loadbalancer.server.port=11434"
+      # DogeClaw web UI + webhooks
+      - "traefik.http.routers.dogeclaw.rule=Host(`dogeclaw.beshtawi.online`)"
+      - "traefik.http.routers.dogeclaw.entrypoints=websecure"
+      - "traefik.http.routers.dogeclaw.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.dogeclaw.service=dogeclaw"
+      - "traefik.http.services.dogeclaw.loadbalancer.server.port=3000"
 
   main-app:
     labels:

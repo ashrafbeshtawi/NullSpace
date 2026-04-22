@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DogeClaw - Login</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, sans-serif; background: #060609; color: #e2e8f0; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+        .login { background: #0c0c14; border: 1px solid rgba(255,255,255,0.05); border-radius: 16px; padding: 2.5rem; width: 100%; max-width: 360px; }
+        h1 { font-size: 1.5rem; text-align: center; margin-bottom: 1.5rem; font-weight: 800; }
+        input { width: 100%; padding: 0.7rem 1rem; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; background: #060609; color: #e2e8f0; font-size: 0.9rem; margin-bottom: 0.75rem; outline: none; }
+        input:focus { border-color: #34d399; }
+        button { width: 100%; padding: 0.7rem; border: none; border-radius: 8px; background: #34d399; color: #060609; font-weight: 700; font-size: 0.9rem; cursor: pointer; }
+        button:hover { background: #2ac084; }
+        .error { color: #f87171; font-size: 0.8rem; text-align: center; margin-top: 0.5rem; display: none; }
+    </style>
+</head>
+<body>
+    <div class="login">
+        <h1>DogeClaw</h1>
+        <form id="form">
+            <input type="text" name="user" placeholder="Username" autocomplete="username" required>
+            <input type="password" name="password" placeholder="Password" autocomplete="current-password" required>
+            <button type="submit">Sign In</button>
+        </form>
+        <div class="error" id="error">Invalid credentials</div>
+    </div>
+    <script>
+        document.getElementById('form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const form = new FormData(e.target);
+            const res = await fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user: form.get('user'), password: form.get('password') }),
+            });
+            if (res.ok) { window.location.href = '/'; }
+            else { document.getElementById('error').style.display = 'block'; }
+        });
+    </script>
+</body>
+</html>
