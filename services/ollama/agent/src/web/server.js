@@ -133,8 +133,13 @@ export function createWebServer(agent) {
       if (audio) {
         send('status', 'Transcribing audio...');
         const transcript = await transcribeAudio(audio, audioMime);
-        userMessage = transcript;
+        // Combine original message with transcript if both present
+        userMessage = userMessage ? `${userMessage}\n\n[Voice message]: ${transcript}` : transcript;
         send('transcript', transcript);
+      }
+      // If only images with no text, provide a default prompt
+      if (!userMessage && images?.length) {
+        userMessage = 'What do you see in this image?';
       }
 
       let fullContent = '';
