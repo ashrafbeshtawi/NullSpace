@@ -49,16 +49,12 @@ services:
       - "traefik.http.routers.admin.entrypoints=web"
       - "traefik.http.services.admin.loadbalancer.server.port=80"
 
-  openclaw-configure:
-    environment:
-      - OPENCLAW_ALLOWED_ORIGINS=http://localhost:18789,http://127.0.0.1:18789,http://chat.localhost:8000
-
-  openclaw-gateway:
+  ollama:
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.openclaw.rule=Host(`chat.localhost`)"
-      - "traefik.http.routers.openclaw.entrypoints=web"
-      - "traefik.http.services.openclaw.loadbalancer.server.port=18789"
+      - "traefik.http.routers.ollama.rule=Host(`ollama.localhost`)"
+      - "traefik.http.routers.ollama.entrypoints=web"
+      - "traefik.http.services.ollama.loadbalancer.server.port=11434"
 
   main-app:
     labels:

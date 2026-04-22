@@ -138,7 +138,7 @@
     $sections = [
         'Applications' => [
             ['name' => 'Main Site', 'sub' => '', 'desc' => 'Landing page', 'type' => 'app', 'icon' => '&#9670;'],
-            ['name' => 'OpenClaw', 'sub' => 'chat.', 'desc' => 'AI assistant', 'type' => 'app', 'icon' => '&#129438;'],
+            ['name' => 'Ollama', 'sub' => 'ollama.', 'desc' => 'Local LLM inference', 'type' => 'app', 'icon' => '&#129302;'],
         ],
         'Infrastructure' => [
             ['name' => 'Traefik', 'sub' => 'traefik.', 'desc' => 'Reverse proxy', 'type' => 'infra', 'icon' => '&#9881;'],

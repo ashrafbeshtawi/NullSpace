@@ -114,73 +114,18 @@ services:
 
   # --- App Services ---
 
-  # One-shot: chown the named volume to uid 1000 (node) before the gateway starts.
-  # Named volumes are created root-owned; the gateway image runs as the node user.
-  openclaw-init:
-    image: alpine:3
-    container_name: openclaw-init
-    command: ["sh", "-c", "chown -R 1000:1000 /home/node/.openclaw"]
+  ollama:
+    build: ./services/ollama
+    container_name: ollama
     volumes:
-      - openclaw_config:/home/node/.openclaw
-    restart: "no"
-
-  # One-shot: runs onboarding (first time) + applies config overlays (every time).
-  openclaw-configure:
-    image: ghcr.io/openclaw/openclaw:latest
-    container_name: openclaw-configure
-    entrypoint: ["/bin/sh", "/scripts/openclaw-configure.sh"]
-    environment:
-      - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
-      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
-      - OPENCLAW_TRUSTED_PROXIES=10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
-    volumes:
-      - openclaw_config:/home/node/.openclaw
-      - ./scripts/openclaw-configure.sh:/scripts/openclaw-configure.sh:ro
-    depends_on:
-      openclaw-init:
-        condition: service_completed_successfully
-    restart: "no"
-
-  openclaw-gateway:
-    build: ./services/openclaw-gateway
-    image: openclaw-gateway:custom
-    container_name: openclaw-gateway
-    environment:
-      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
-      - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
-    volumes:
-      - openclaw_config:/home/node/.openclaw
-      - ./services/openclaw-gateway/workspace/skills:/home/node/.openclaw/workspace/skills:ro
-    depends_on:
-      openclaw-configure:
-        condition: service_completed_successfully
+      - ollama_data:/root/.ollama
     labels:
       - "traefik.enable=true"
-      - "traefik.http.services.openclaw.loadbalancer.server.port=18789"
+      - "traefik.http.services.ollama.loadbalancer.server.port=11434"
+      - "traefik.docker.network=nullspace_public-web"
     networks:
       - public-web
-
-  # Sidecar for post-start CLI commands (devices list/approve, config get, etc.).
-  # Shares the gateway's network namespace so it can reach 127.0.0.1:18789.
-  # Profile-gated — doesn't start with `docker compose up`; invoke with
-  # `docker compose run --rm openclaw-cli <command>`.
-  openclaw-cli:
-    image: ghcr.io/openclaw/openclaw:latest
-    container_name: openclaw-cli
-    entrypoint: ["openclaw"]
-    network_mode: "service:openclaw-gateway"
-    environment:
-      - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
-    volumes:
-      - openclaw_config:/home/node/.openclaw
-    depends_on:
-      - openclaw-gateway
-    profiles: ["cli"]
-    cap_drop:
-      - NET_RAW
-      - NET_ADMIN
-    security_opt:
-      - no-new-privileges:true
+      - internal
 
   main-app:
     build: ./services/default
@@ -203,4 +148,4 @@ volumes:
   redis_data:
   portainer_data:
   uptime_kuma_data:
-  openclaw_config:
+  ollama_data:
