@@ -4,7 +4,7 @@ import { readFile, writeFile, readdir, mkdir, unlink } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import config from '../config.js';
-import { query } from '../db/pool.js';
+import { adminQuery as query } from '../db/pool.js';
 import { transcribeAudio } from '../audio.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -108,12 +108,23 @@ export function createWebServer(agent) {
     const sessionData = await loadSession(sid);
     const history = sessionData.messages || [];
 
-    // Load agent config
+    // Load agent + model config
     let agentConfig = null;
+    let modelConfig = null;
     const aid = agentId || sessionData.agentId || 1;
     try {
-      const result = await query('SELECT * FROM agents WHERE id = $1', [aid]);
+      const result = await query(
+        `SELECT a.*, m.base_url, m.model_id as ollama_model, m.think, m.accepts, m.provider
+         FROM agents a LEFT JOIN models m ON a.model_id = m.id WHERE a.id = $1`, [aid]);
       agentConfig = result.rows[0];
+      if (agentConfig) {
+        modelConfig = {
+          base_url: agentConfig.base_url,
+          model_id: agentConfig.ollama_model,
+          think: agentConfig.think,
+          accepts: agentConfig.accepts || ['text'],
+        };
+      }
     } catch {}
 
     // SSE headers
@@ -128,41 +139,28 @@ export function createWebServer(agent) {
     };
 
     try {
-      // Transcribe audio if present
-      let userMessage = message || '';
-      if (audio) {
-        send('status', 'Transcribing audio...');
-        const transcript = await transcribeAudio(audio, audioMime);
-        // Combine original message with transcript if both present
-        userMessage = userMessage ? `${userMessage}\n\n[Voice message]: ${transcript}` : transcript;
-        send('transcript', transcript);
-      }
-      // If only images with no text, provide a default prompt
-      if (!userMessage && images?.length) {
-        userMessage = 'What do you see in this image?';
-      }
-
       let fullContent = '';
       let fullThinking = '';
 
-      const reply = await agent.run(userMessage, history, {
+      const reply = await agent.run(message || '', history, {
         systemPrompt: agentConfig?.system_prompt,
-        model: agentConfig?.model,
-        think: agentConfig?.think,
+        modelConfig,
         images: images || undefined,
+        audio: audio || undefined,
+        audioMime: audioMime || undefined,
         onEvent: (type, data) => {
           if (type === 'thinking') { fullThinking += data; send('thinking', data); }
           else if (type === 'content') { fullContent += data; send('content', data); }
           else if (type === 'tool_calls') { send('tool_calls', data); }
           else if (type === 'tool_result') { send('tool_result', data); }
+          else if (type === 'status') { send('status', data); }
+          else if (type === 'transcript') { send('transcript', data); }
         },
       });
 
-      // The reply from agent.run is the final full text (from non-streaming path or last iteration)
-      // In streaming mode, fullContent has the accumulated content
       const finalContent = fullContent || reply;
 
-      const userLabel = audio ? `[voice] ${userMessage}` : (message || '(image)');
+      const userLabel = audio ? `[voice] ${message || '(audio)'}` : (message || '(image)');
       history.push({ role: 'user', content: userLabel, ...(images?.length ? { hasImage: true } : {}), ...(audio ? { hasAudio: true } : {}) });
       history.push({ role: 'assistant', content: finalContent, ...(fullThinking ? { thinking: fullThinking } : {}) });
       while (history.length > 40) history.shift();
@@ -181,27 +179,63 @@ export function createWebServer(agent) {
     res.end();
   });
 
+  // --- Models CRUD ---
+  app.get('/api/models', authMiddleware, async (req, res) => {
+    const result = await query('SELECT * FROM models ORDER BY id');
+    res.json({ models: result.rows });
+  });
+
+  app.post('/api/models', authMiddleware, async (req, res) => {
+    const { name, provider, base_url, model_id, think, accepts } = req.body;
+    if (!name || !model_id) return res.status(400).json({ error: 'name and model_id required' });
+    const result = await query(
+      'INSERT INTO models (name, provider, base_url, model_id, think, accepts) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+      [name, provider || 'ollama', base_url || 'http://127.0.0.1:11434', model_id, think || false, JSON.stringify(accepts || ['text'])],
+    );
+    res.json(result.rows[0]);
+  });
+
+  app.put('/api/models/:id', authMiddleware, async (req, res) => {
+    const { name, provider, base_url, model_id, think, accepts } = req.body;
+    const result = await query(
+      `UPDATE models SET name = COALESCE($1, name), provider = COALESCE($2, provider),
+       base_url = COALESCE($3, base_url), model_id = COALESCE($4, model_id),
+       think = COALESCE($5, think), accepts = COALESCE($6, accepts)
+       WHERE id = $7 RETURNING *`,
+      [name, provider, base_url, model_id, think, accepts ? JSON.stringify(accepts) : null, req.params.id],
+    );
+    if (result.rowCount === 0) return res.status(404).json({ error: 'not found' });
+    res.json(result.rows[0]);
+  });
+
+  app.delete('/api/models/:id', authMiddleware, async (req, res) => {
+    await query('DELETE FROM models WHERE id = $1', [req.params.id]);
+    res.json({ ok: true });
+  });
+
   // --- Agents CRUD ---
   app.get('/api/agents', authMiddleware, async (req, res) => {
-    const result = await query('SELECT * FROM agents ORDER BY id');
+    const result = await query(
+      `SELECT a.*, m.name as model_name, m.model_id as ollama_model, m.think, m.accepts
+       FROM agents a LEFT JOIN models m ON a.model_id = m.id ORDER BY a.id`);
     res.json({ agents: result.rows });
   });
 
   app.post('/api/agents', authMiddleware, async (req, res) => {
-    const { name, system_prompt, model, think } = req.body;
+    const { name, system_prompt, model_id } = req.body;
     if (!name) return res.status(400).json({ error: 'name required' });
     const result = await query(
-      'INSERT INTO agents (name, system_prompt, model, think) VALUES ($1, $2, $3, $4) RETURNING *',
-      [name, system_prompt || '', model || config.ollama.model, think || false],
+      'INSERT INTO agents (name, system_prompt, model_id) VALUES ($1, $2, $3) RETURNING *',
+      [name, system_prompt || '', model_id || null],
     );
     res.json(result.rows[0]);
   });
 
   app.put('/api/agents/:id', authMiddleware, async (req, res) => {
-    const { name, system_prompt, model, think } = req.body;
+    const { name, system_prompt, model_id } = req.body;
     const result = await query(
-      'UPDATE agents SET name = COALESCE($1, name), system_prompt = COALESCE($2, system_prompt), model = COALESCE($3, model), think = COALESCE($4, think) WHERE id = $5 RETURNING *',
-      [name, system_prompt, model, think, req.params.id],
+      'UPDATE agents SET name = COALESCE($1, name), system_prompt = COALESCE($2, system_prompt), model_id = COALESCE($3, model_id) WHERE id = $4 RETURNING *',
+      [name, system_prompt, model_id, req.params.id],
     );
     if (result.rowCount === 0) return res.status(404).json({ error: 'not found' });
     res.json(result.rows[0]);

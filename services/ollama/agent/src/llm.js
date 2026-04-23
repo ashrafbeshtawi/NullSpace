@@ -1,13 +1,14 @@
 import config from './config.js';
 
 export async function chat(messages, tools = [], opts = {}) {
+  const baseUrl = opts.baseUrl || config.ollama.url;
   const model = opts.model || config.ollama.model;
   const think = opts.think ?? config.ollama.think;
 
   const body = { model, messages, stream: false, think };
   if (tools.length > 0) body.tools = tools;
 
-  const res = await fetch(`${config.ollama.url}/api/chat`, {
+  const res = await fetch(`${baseUrl}/api/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -23,13 +24,14 @@ export async function chat(messages, tools = [], opts = {}) {
 }
 
 export async function chatStream(messages, tools = [], opts = {}, onEvent) {
+  const baseUrl = opts.baseUrl || config.ollama.url;
   const model = opts.model || config.ollama.model;
   const think = opts.think ?? config.ollama.think;
 
   const body = { model, messages, stream: true, think };
   if (tools.length > 0) body.tools = tools;
 
-  const res = await fetch(`${config.ollama.url}/api/chat`, {
+  const res = await fetch(`${baseUrl}/api/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -54,7 +56,7 @@ export async function chatStream(messages, tools = [], opts = {}, onEvent) {
 
     buffer += decoder.decode(value, { stream: true });
     const lines = buffer.split('\n');
-    buffer = lines.pop(); // keep incomplete line
+    buffer = lines.pop();
 
     for (const line of lines) {
       if (!line.trim()) continue;

@@ -13,7 +13,8 @@ const config = {
     secret: env.DOGECLAW_WEB_SECRET || 'dogeclaw-default-secret-change-me',
   },
   database: {
-    url: env.DOGECLAW_DATABASE_URL || null,
+    adminUrl: env.DOGECLAW_ADMIN_DATABASE_URL || env.DOGECLAW_DATABASE_URL || null,
+    agentUrl: env.DOGECLAW_DATABASE_URL || null,
   },
   telegram: {
     mode: env.DOGECLAW_TELEGRAM_MODE || 'polling',

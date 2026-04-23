@@ -1,9 +1,9 @@
 import TelegramBot from 'node-telegram-bot-api';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import { query } from '../db/pool.js';
+import { agentQuery as query } from '../db/pool.js';
 import config from '../config.js';
-import { transcribeAudio } from '../audio.js';
+// transcribeAudio imported dynamically where needed
 
 const MAX_MSG_LEN = 4096;
 
@@ -35,8 +35,11 @@ export class TelegramManager {
     let channels = [];
     try {
       const result = await query(`
-        SELECT c.*, a.name as agent_name, a.system_prompt, a.model, a.think
-        FROM channels c JOIN agents a ON c.agent_id = a.id
+        SELECT c.*, a.name as agent_name, a.system_prompt,
+               m.base_url, m.model_id, m.think, m.accepts, m.provider
+        FROM channels c
+        JOIN agents a ON c.agent_id = a.id
+        LEFT JOIN models m ON a.model_id = m.id
         WHERE c.type = 'telegram' AND c.enabled = true
       `);
       channels = result.rows;
@@ -128,15 +131,23 @@ export class TelegramManager {
         const fileId = (msg.voice || msg.audio).file_id;
         const mime = (msg.voice || msg.audio).mime_type || 'audio/ogg';
         try {
-          console.log(`[telegram] ${channel.name}: transcribing audio...`);
+          console.log(`[telegram] ${channel.name}: downloading audio...`);
           bot.sendChatAction(msg.chat.id, 'typing').catch(() => {});
           const audioB64 = await this.#downloadFileBase64(bot, fileId);
-          const transcript = await transcribeAudio(audioB64, mime);
-          textContent = transcript;
-          console.log(`[telegram] ${channel.name}: transcript: ${transcript.slice(0, 80)}`);
+          textContent = msg.caption || '';
+          // Pass audio to handleMessage — agent decides whether to transcribe or forward
+          if (channel.response_mode === 'periodic') {
+            // For periodic, transcribe now since we can't pass binary in queue
+            const { transcribeAudio: ta } = await import('../audio.js');
+            textContent = await ta(audioB64, mime);
+            await this.#enqueue(channel.name, msg, textContent, images);
+            return;
+          }
+          await this.#handleMessage(bot, msg.chat.id, textContent, images, channel, audioB64, mime);
+          return;
         } catch (err) {
-          console.error(`[telegram] ${channel.name}: failed to transcribe audio: ${err.message}`);
-          await bot.sendMessage(msg.chat.id, `Failed to transcribe audio: ${err.message}`).catch(() => {});
+          console.error(`[telegram] ${channel.name}: failed to handle audio: ${err.message}`);
+          await bot.sendMessage(msg.chat.id, `Failed to process audio: ${err.message}`).catch(() => {});
           return;
         }
       }
@@ -172,19 +183,27 @@ export class TelegramManager {
     return buffer.toString('base64');
   }
 
-  async #handleMessage(bot, chatId, text, images, channel) {
+  async #handleMessage(bot, chatId, text, images, channel, audioB64, audioMime) {
     bot.sendChatAction(chatId, 'typing').catch(() => {});
 
     const sessionId = `tg-${channel.name}-${chatId}`;
     const sessionData = await loadSession(sessionId);
     const history = sessionData.messages || [];
 
+    const modelConfig = {
+      base_url: channel.base_url,
+      model_id: channel.model_id,
+      think: channel.think,
+      accepts: channel.accepts || ['text'],
+    };
+
     try {
       const reply = await this.#agent.run(text, history, {
         systemPrompt: channel?.system_prompt,
-        model: channel?.model,
-        think: channel?.think,
+        modelConfig,
         images: images || undefined,
+        audio: audioB64 || undefined,
+        audioMime: audioMime || undefined,
       });
       history.push({ role: 'user', content: text });
       history.push({ role: 'assistant', content: reply });

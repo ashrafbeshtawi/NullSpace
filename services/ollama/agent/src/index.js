@@ -1,7 +1,7 @@
 import { mkdir } from 'node:fs/promises';
 import config from './config.js';
 import { migrate } from './db/schema.js';
-import { shutdown as shutdownPool } from './db/pool.js';
+import { shutdown as shutdownPools } from './db/pool.js';
 import { ToolRegistry } from './tools/index.js';
 import { Agent } from './agent.js';
 import { CronRunner } from './cron/runner.js';
@@ -25,8 +25,8 @@ async function main() {
   await mkdir(config.paths.queues, { recursive: true });
   await mkdir(config.paths.logs, { recursive: true });
 
-  // Run DB migrations
-  if (config.database.url) {
+  // Run DB migrations (uses admin pool)
+  if (config.database.adminUrl) {
     await migrate();
   }
 
@@ -35,7 +35,7 @@ async function main() {
   registerExec(registry);
   registerFiles(registry);
   registerCron(registry);
-  if (config.database.url) registerDb(registry);
+  if (config.database.agentUrl) registerDb(registry);
 
   // MCP clients
   const mcp = new McpManager();
@@ -58,7 +58,7 @@ async function main() {
   const app = createWebServer(agent);
 
   // Start Telegram (loads channels from DB)
-  if (config.database.url) {
+  if (config.database.agentUrl) {
     await telegram.start(app);
   }
 
@@ -75,7 +75,7 @@ async function main() {
     telegram.stop();
     cronRunner.stop();
     await mcp.stop();
-    await shutdownPool();
+    await shutdownPools();
     process.exit(0);
   };
 

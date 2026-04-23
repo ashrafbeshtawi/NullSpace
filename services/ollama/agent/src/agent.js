@@ -1,5 +1,6 @@
 import { chat, chatStream } from './llm.js';
 import config from './config.js';
+import { transcribeAudio } from './audio.js';
 
 const MAX_ITERATIONS = 10;
 
@@ -16,7 +17,6 @@ export class Agent {
   #buildSystemPrompt(customPrompt) {
     const base = customPrompt || DEFAULT_SYSTEM_PROMPT;
 
-    // Always list available tools so the model knows what it can do
     const toolDescriptions = this.#registry.getDefinitions().map(t => {
       const fn = t.function;
       const params = fn.parameters?.properties
@@ -38,20 +38,47 @@ ${toolDescriptions}`;
    * Run the agent loop.
    * @param {string} userMessage
    * @param {Array} history
-   * @param {object} opts - { systemPrompt, model, think, onEvent, systemNote, images }
+   * @param {object} opts
+   *   modelConfig: { base_url, model_id, think, accepts }  (from models table)
+   *   systemPrompt, onEvent, systemNote, images, audio, audioMime
    */
   async run(userMessage, history = [], opts = {}) {
     const systemPrompt = this.#buildSystemPrompt(opts.systemPrompt);
-    const model = opts.model || config.ollama.model;
-    const think = opts.think ?? config.ollama.think;
+    const mc = opts.modelConfig || {};
+    const baseUrl = mc.base_url || config.ollama.url;
+    const model = mc.model_id || config.ollama.model;
+    const think = mc.think ?? config.ollama.think;
+    const accepts = mc.accepts || ['text'];
     const onEvent = opts.onEvent || null;
+
+    // Handle audio: transcribe or forward depending on model capabilities
+    let processedMessage = userMessage;
+    if (opts.audio) {
+      if (accepts.includes('audio')) {
+        // Model accepts audio natively — this is a placeholder for when Ollama supports it
+        processedMessage = processedMessage || 'What is said in this audio?';
+        // TODO: pass audio to Ollama when API supports it
+      } else {
+        // Transcribe with whisper
+        if (onEvent) onEvent('status', 'Transcribing audio...');
+        const transcript = await transcribeAudio(opts.audio, opts.audioMime);
+        if (onEvent) onEvent('transcript', transcript);
+        processedMessage = processedMessage
+          ? `${processedMessage}\n\n[Voice message]: ${transcript}`
+          : transcript;
+      }
+    }
+
+    if (!processedMessage && opts.images?.length) {
+      processedMessage = 'What do you see in this image?';
+    }
 
     const systemContent = opts.systemNote
       ? `${systemPrompt}\n\nNote: ${opts.systemNote}`
       : systemPrompt;
 
-    const userMsg = { role: 'user', content: userMessage };
-    if (opts.images?.length) {
+    const userMsg = { role: 'user', content: processedMessage };
+    if (opts.images?.length && accepts.includes('image')) {
       userMsg.images = opts.images;
     }
 
@@ -62,7 +89,7 @@ ${toolDescriptions}`;
     ];
 
     const tools = this.#registry.getDefinitions();
-    const llmOpts = { model, think };
+    const llmOpts = { baseUrl, model, think };
 
     for (let i = 0; i < MAX_ITERATIONS; i++) {
       let response;
@@ -77,11 +104,9 @@ ${toolDescriptions}`;
         return response.content || '(no response)';
       }
 
-      // Append assistant message with tool calls
       messages.push(response);
       if (onEvent) onEvent('tool_calls', response.tool_calls);
 
-      // Execute each tool call
       for (const call of response.tool_calls) {
         const result = await this.#registry.execute(
           call.function.name,

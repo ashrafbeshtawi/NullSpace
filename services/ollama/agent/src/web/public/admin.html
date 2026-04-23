@@ -29,6 +29,9 @@
         .modal textarea { min-height: 80px; resize: vertical; }
         .modal .toggle { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.3rem; }
         .modal .toggle input { width: auto; }
+        .modal .checks { display: flex; gap: 1rem; margin-top: 0.3rem; flex-wrap: wrap; }
+        .modal .checks label { display: flex; align-items: center; gap: 0.3rem; margin: 0; }
+        .modal .checks input { width: auto; }
         .modal .btn-row { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1.25rem; }
         .modal .btn-row button { padding: 0.5rem 1rem; border-radius: 6px; border: none; cursor: pointer; font-size: 0.85rem; font-weight: 600; }
         .modal .btn-cancel { background: transparent; border: 1px solid rgba(255,255,255,0.1); color: #94a3b8; }
@@ -36,6 +39,7 @@
         .badge { font-size: 0.7rem; padding: 0.15rem 0.4rem; border-radius: 4px; font-weight: 600; }
         .badge-on { background: rgba(52,211,153,0.15); color: #34d399; }
         .badge-off { background: rgba(248,113,113,0.15); color: #f87171; }
+        .badge-tag { background: rgba(96,165,250,0.15); color: #60a5fa; margin-right: 0.2rem; }
         .hint { font-size: 0.75rem; color: #64748b; margin-top: 0.3rem; }
         .hint code { color: #34d399; background: rgba(52,211,153,0.1); padding: 0.1rem 0.3rem; border-radius: 3px; }
     </style>
@@ -46,14 +50,25 @@
         <a href="/">&larr; Back to Chat</a>
     </div>
 
+    <!-- Models -->
+    <div class="section">
+        <h2>Models <button onclick="openModelModal()">+ New Model</button></h2>
+        <table>
+            <thead><tr><th>Name</th><th>Provider</th><th>Model ID</th><th>Think</th><th>Accepts</th><th></th></tr></thead>
+            <tbody id="modelsTable"></tbody>
+        </table>
+    </div>
+
+    <!-- Agents -->
     <div class="section">
         <h2>Agents <button onclick="openAgentModal()">+ New Agent</button></h2>
         <table>
-            <thead><tr><th>Name</th><th>Model</th><th>Think</th><th>System Prompt</th><th></th></tr></thead>
+            <thead><tr><th>Name</th><th>Model</th><th>System Prompt</th><th></th></tr></thead>
             <tbody id="agentsTable"></tbody>
         </table>
     </div>
 
+    <!-- Channels -->
     <div class="section">
         <h2>Channels <button onclick="openChannelModal()">+ New Channel</button></h2>
         <table>
@@ -63,6 +78,36 @@
         <div class="hint" style="margin-top:0.75rem" id="telegramModeHint"></div>
     </div>
 
+    <!-- Model Modal -->
+    <div class="modal-overlay" id="modelModal">
+        <div class="modal">
+            <h3 id="modelModalTitle">New Model</h3>
+            <input type="hidden" id="modelFormId">
+            <label>Name</label>
+            <input type="text" id="modelName" placeholder="gemma4-e2b">
+            <label>Provider</label>
+            <select id="modelProvider"><option value="ollama">Ollama (local)</option></select>
+            <label>Base URL</label>
+            <input type="text" id="modelBaseUrl" placeholder="http://127.0.0.1:11434">
+            <label>Model ID</label>
+            <input type="text" id="modelModelId" placeholder="gemma4:e2b">
+            <div class="toggle"><input type="checkbox" id="modelThink"><label for="modelThink">Enable thinking</label></div>
+            <label>Accepts</label>
+            <div class="checks">
+                <label><input type="checkbox" id="acceptText" checked disabled> text</label>
+                <label><input type="checkbox" id="acceptImage"> image</label>
+                <label><input type="checkbox" id="acceptAudio"> audio</label>
+                <label><input type="checkbox" id="acceptVideo"> video</label>
+            </div>
+            <div class="hint">If audio is checked, voice messages are forwarded directly to the model instead of being transcribed by Whisper first.</div>
+            <div class="btn-row">
+                <button class="btn-cancel" onclick="closeModal('modelModal')">Cancel</button>
+                <button class="btn-save" onclick="saveModel()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Agent Modal -->
     <div class="modal-overlay" id="agentModal">
         <div class="modal">
             <h3 id="agentModalTitle">New Agent</h3>
@@ -70,8 +115,7 @@
             <label>Name</label>
             <input type="text" id="agentName" placeholder="my-agent">
             <label>Model</label>
-            <input type="text" id="agentModel" placeholder="gemma4:e2b">
-            <div class="toggle"><input type="checkbox" id="agentThink"><label for="agentThink">Enable thinking</label></div>
+            <select id="agentModel"></select>
             <label>System Prompt</label>
             <textarea id="agentPrompt" placeholder="You are a helpful assistant..."></textarea>
             <div class="btn-row">
@@ -81,6 +125,7 @@
         </div>
     </div>
 
+    <!-- Channel Modal -->
     <div class="modal-overlay" id="channelModal">
         <div class="modal">
             <h3 id="channelModalTitle">New Channel</h3>
@@ -98,10 +143,7 @@
             <label>Allowed Users (comma-separated Telegram user IDs)</label>
             <input type="text" id="channelUsers" placeholder="123456789,987654321">
             <label>Response Mode</label>
-            <select id="channelMode">
-                <option value="immediate">Immediate</option>
-                <option value="periodic">Periodic</option>
-            </select>
+            <select id="channelMode"><option value="immediate">Immediate</option><option value="periodic">Periodic</option></select>
             <label>Interval (for periodic, e.g. 30m, 1h)</label>
             <input type="text" id="channelInterval" placeholder="30m">
             <div class="toggle"><input type="checkbox" id="channelEnabled" checked><label for="channelEnabled">Enabled</label></div>
@@ -113,111 +155,160 @@
     </div>
 
     <script>
-        let agents = [], channels = [], siteConfig = {};
+        var models = [], agents = [], channels = [], siteConfig = {};
 
         async function api(method, path, body) {
-            const opts = { method, headers: { 'Content-Type': 'application/json' } };
+            var opts = { method: method, headers: { 'Content-Type': 'application/json' } };
             if (body) opts.body = JSON.stringify(body);
-            const res = await fetch(path, opts);
+            var res = await fetch(path, opts);
             if (res.status === 401) return window.location.href = '/login';
             return res.json();
         }
 
         async function load() {
-            const [a, c, cfg] = await Promise.all([
-                api('GET', '/api/agents'),
-                api('GET', '/api/channels'),
-                api('GET', '/api/config'),
+            var results = await Promise.all([
+                api('GET', '/api/models'), api('GET', '/api/agents'),
+                api('GET', '/api/channels'), api('GET', '/api/config'),
             ]);
-            agents = a.agents; channels = c.channels; siteConfig = cfg;
-            renderAgents(); renderChannels();
-
-            const modeHint = document.getElementById('telegramModeHint');
-            if (siteConfig.telegramMode === 'webhook' && siteConfig.webhookUrl) {
-                modeHint.innerHTML = 'Telegram mode: <strong>webhook</strong> &mdash; base URL: <code>' + esc(siteConfig.webhookUrl) + '</code>';
-            } else {
-                modeHint.innerHTML = 'Telegram mode: <strong>polling</strong> (dev) &mdash; no webhook URL needed. Set <code>DOGECLAW_TELEGRAM_MODE=webhook</code> and <code>DOGECLAW_WEBHOOK_URL</code> for production.';
-            }
+            models = results[0].models; agents = results[1].agents;
+            channels = results[2].channels; siteConfig = results[3];
+            renderModels(); renderAgents(); renderChannels();
+            var mh = document.getElementById('telegramModeHint');
+            mh.innerHTML = siteConfig.telegramMode === 'webhook' && siteConfig.webhookUrl
+                ? 'Telegram mode: <strong>webhook</strong> &mdash; <code>' + esc(siteConfig.webhookUrl) + '</code>'
+                : 'Telegram mode: <strong>polling</strong> (dev)';
         }
 
+        function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+        function find(arr, id) { return arr.find(function(x) { return x.id === id; }); }
+
+        // --- Models ---
+        function renderModels() {
+            document.getElementById('modelsTable').innerHTML = models.map(function(m) {
+                var acc = (m.accepts || ['text']).map(function(a) { return '<span class="badge badge-tag">' + esc(a) + '</span>'; }).join('');
+                return '<tr><td><strong>' + esc(m.name) + '</strong></td><td>' + esc(m.provider) + '</td>'
+                    + '<td>' + esc(m.model_id) + '</td>'
+                    + '<td><span class="badge ' + (m.think ? 'badge-on' : 'badge-off') + '">' + (m.think ? 'on' : 'off') + '</span></td>'
+                    + '<td>' + acc + '</td>'
+                    + '<td class="actions"><button onclick="editModel(' + m.id + ')">Edit</button>'
+                    + '<button class="danger" onclick="deleteModel(' + m.id + ')">Delete</button></td></tr>';
+            }).join('');
+        }
+
+        function openModelModal(m) {
+            if (typeof m === 'number') m = find(models, m);
+            document.getElementById('modelModalTitle').textContent = m ? 'Edit Model' : 'New Model';
+            document.getElementById('modelFormId').value = m ? m.id : '';
+            document.getElementById('modelName').value = m ? m.name : '';
+            document.getElementById('modelProvider').value = m ? m.provider : 'ollama';
+            document.getElementById('modelBaseUrl').value = m ? m.base_url : 'http://127.0.0.1:11434';
+            document.getElementById('modelModelId').value = m ? m.model_id : '';
+            document.getElementById('modelThink').checked = m ? m.think : false;
+            var acc = m ? (m.accepts || ['text']) : ['text'];
+            document.getElementById('acceptImage').checked = acc.includes('image');
+            document.getElementById('acceptAudio').checked = acc.includes('audio');
+            document.getElementById('acceptVideo').checked = acc.includes('video');
+            document.getElementById('modelModal').classList.add('open');
+        }
+        function editModel(id) { openModelModal(id); }
+
+        async function saveModel() {
+            var id = document.getElementById('modelFormId').value;
+            var acc = ['text'];
+            if (document.getElementById('acceptImage').checked) acc.push('image');
+            if (document.getElementById('acceptAudio').checked) acc.push('audio');
+            if (document.getElementById('acceptVideo').checked) acc.push('video');
+            var body = {
+                name: document.getElementById('modelName').value,
+                provider: document.getElementById('modelProvider').value,
+                base_url: document.getElementById('modelBaseUrl').value,
+                model_id: document.getElementById('modelModelId').value,
+                think: document.getElementById('modelThink').checked,
+                accepts: acc,
+            };
+            if (id) await api('PUT', '/api/models/' + id, body);
+            else await api('POST', '/api/models', body);
+            closeModal('modelModal'); load();
+        }
+
+        async function deleteModel(id) {
+            if (!confirm('Delete this model?')) return;
+            await api('DELETE', '/api/models/' + id); load();
+        }
+
+        // --- Agents ---
         function renderAgents() {
-            document.getElementById('agentsTable').innerHTML = agents.map(function(a) { return '<tr>'
-                + '<td><strong>' + esc(a.name) + '</strong></td>'
-                + '<td>' + esc(a.model) + '</td>'
-                + '<td><span class="badge ' + (a.think ? 'badge-on' : 'badge-off') + '">' + (a.think ? 'on' : 'off') + '</span></td>'
-                + '<td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(a.system_prompt) + '</td>'
-                + '<td class="actions"><button onclick="editAgent(' + a.id + ')">Edit</button>'
-                + (a.id !== 1 ? '<button class="danger" onclick="deleteAgent(' + a.id + ')">Delete</button>' : '')
-                + '</td></tr>';
+            document.getElementById('agentsTable').innerHTML = agents.map(function(a) {
+                return '<tr><td><strong>' + esc(a.name) + '</strong></td>'
+                    + '<td>' + esc(a.model_name || '(none)') + '</td>'
+                    + '<td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(a.system_prompt) + '</td>'
+                    + '<td class="actions"><button onclick="editAgent(' + a.id + ')">Edit</button>'
+                    + (a.id !== 1 ? '<button class="danger" onclick="deleteAgent(' + a.id + ')">Delete</button>' : '')
+                    + '</td></tr>';
             }).join('');
-        }
-
-        function renderChannels() {
-            document.getElementById('channelsTable').innerHTML = channels.map(function(c) { return '<tr>'
-                + '<td><strong>' + esc(c.name) + '</strong></td>'
-                + '<td>' + esc(c.type) + '</td>'
-                + '<td>' + esc(c.agent_name) + '</td>'
-                + '<td>' + esc(c.response_mode) + (c.response_interval ? ' / ' + esc(c.response_interval) : '') + '</td>'
-                + '<td><span class="badge ' + (c.enabled ? 'badge-on' : 'badge-off') + '">' + (c.enabled ? 'on' : 'off') + '</span></td>'
-                + '<td class="actions"><button onclick="editChannel(' + c.id + ')">Edit</button>'
-                + '<button class="danger" onclick="deleteChannel(' + c.id + ')">Delete</button></td></tr>';
-            }).join('');
+            // Update agent selects in channel modal
             document.getElementById('channelAgent').innerHTML = agents.map(function(a) {
                 return '<option value="' + a.id + '">' + esc(a.name) + '</option>';
             }).join('');
         }
 
-        function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-
-        function findAgent(id) { return agents.find(function(a) { return a.id === id; }); }
-        function findChannel(id) { return channels.find(function(c) { return c.id === id; }); }
-
         function openAgentModal(a) {
-            if (typeof a === 'number') a = findAgent(a);
+            if (typeof a === 'number') a = find(agents, a);
             document.getElementById('agentModalTitle').textContent = a ? 'Edit Agent' : 'New Agent';
             document.getElementById('agentId').value = a ? a.id : '';
             document.getElementById('agentName').value = a ? a.name : '';
-            document.getElementById('agentModel').value = a ? a.model : 'gemma4:e2b';
-            document.getElementById('agentThink').checked = a ? a.think : false;
             document.getElementById('agentPrompt').value = a ? a.system_prompt : '';
+            // Populate model dropdown
+            document.getElementById('agentModel').innerHTML =
+                '<option value="">(default)</option>' +
+                models.map(function(m) { return '<option value="' + m.id + '">' + esc(m.name) + ' (' + esc(m.model_id) + ')</option>'; }).join('');
+            document.getElementById('agentModel').value = a && a.model_id ? a.model_id : '';
             document.getElementById('agentModal').classList.add('open');
         }
         function editAgent(id) { openAgentModal(id); }
 
         async function saveAgent() {
             var id = document.getElementById('agentId').value;
+            var mid = document.getElementById('agentModel').value;
             var body = {
                 name: document.getElementById('agentName').value,
-                model: document.getElementById('agentModel').value,
-                think: document.getElementById('agentThink').checked,
                 system_prompt: document.getElementById('agentPrompt').value,
+                model_id: mid ? parseInt(mid) : null,
             };
             if (id) await api('PUT', '/api/agents/' + id, body);
             else await api('POST', '/api/agents', body);
-            closeModal('agentModal');
-            load();
+            closeModal('agentModal'); load();
         }
 
         async function deleteAgent(id) {
             if (!confirm('Delete this agent?')) return;
-            await api('DELETE', '/api/agents/' + id);
-            load();
+            await api('DELETE', '/api/agents/' + id); load();
+        }
+
+        // --- Channels ---
+        function renderChannels() {
+            document.getElementById('channelsTable').innerHTML = channels.map(function(c) {
+                return '<tr><td><strong>' + esc(c.name) + '</strong></td>'
+                    + '<td>' + esc(c.type) + '</td><td>' + esc(c.agent_name) + '</td>'
+                    + '<td>' + esc(c.response_mode) + (c.response_interval ? ' / ' + esc(c.response_interval) : '') + '</td>'
+                    + '<td><span class="badge ' + (c.enabled ? 'badge-on' : 'badge-off') + '">' + (c.enabled ? 'on' : 'off') + '</span></td>'
+                    + '<td class="actions"><button onclick="editChannel(' + c.id + ')">Edit</button>'
+                    + '<button class="danger" onclick="deleteChannel(' + c.id + ')">Delete</button></td></tr>';
+            }).join('');
         }
 
         function updateWebhookHint() {
             var hint = document.getElementById('webhookHint');
             var name = document.getElementById('channelName').value;
-            if (siteConfig.telegramMode === 'webhook' && siteConfig.webhookUrl && name) {
-                hint.innerHTML = 'Webhook URL: <code>' + esc(siteConfig.webhookUrl) + '/webhook/' + esc(name) + '</code>';
-            } else if (siteConfig.telegramMode === 'polling') {
-                hint.textContent = 'Using polling mode (dev). No webhook URL needed.';
-            } else {
-                hint.textContent = 'Enter a channel name to see the webhook URL.';
-            }
+            if (siteConfig.telegramMode === 'webhook' && siteConfig.webhookUrl && name)
+                hint.innerHTML = 'Webhook: <code>' + esc(siteConfig.webhookUrl) + '/webhook/' + esc(name) + '</code>';
+            else if (siteConfig.telegramMode === 'polling')
+                hint.textContent = 'Using polling mode (dev).';
+            else hint.textContent = '';
         }
 
         function openChannelModal(c) {
-            if (typeof c === 'number') c = findChannel(c);
+            if (typeof c === 'number') c = find(channels, c);
             document.getElementById('channelModalTitle').textContent = c ? 'Edit Channel' : 'New Channel';
             document.getElementById('channelId').value = c ? c.id : '';
             document.getElementById('channelName').value = c ? c.name : '';
@@ -232,7 +323,6 @@
             updateWebhookHint();
         }
         function editChannel(id) { openChannelModal(id); }
-
         document.getElementById('channelName').addEventListener('input', updateWebhookHint);
 
         async function saveChannel() {
@@ -251,18 +341,15 @@
             };
             if (id) await api('PUT', '/api/channels/' + id, body);
             else await api('POST', '/api/channels', body);
-            closeModal('channelModal');
-            load();
+            closeModal('channelModal'); load();
         }
 
         async function deleteChannel(id) {
             if (!confirm('Delete this channel?')) return;
-            await api('DELETE', '/api/channels/' + id);
-            load();
+            await api('DELETE', '/api/channels/' + id); load();
         }
 
         function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-
         load();
     </script>
 </body>
