@@ -31,7 +31,14 @@ Current date: ${new Date().toISOString().split('T')[0]}
 Workspace: ${config.paths.files}
 
 You have the following tools available. Use them whenever needed — do not say you lack capabilities:
-${toolDescriptions}`;
+${toolDescriptions}
+
+IMPORTANT rules for tool use:
+- Always prefer ACTION over asking the user. If you can do it with your tools, do it.
+- Chain tools together autonomously. For example: use web_search to find URLs, then use web_fetch on those URLs to read their content, then summarize. Do NOT ask the user to pick URLs or confirm steps.
+- Never say "I cannot" when you have a tool that can do it. Just use the tool.
+- When asked to research something, search the web, visit multiple result pages, and synthesize the information yourself.
+- You can call tools multiple times in sequence. Do not stop after one tool call if more are needed to complete the task.`;
   }
 
   /**
