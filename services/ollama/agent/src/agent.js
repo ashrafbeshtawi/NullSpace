@@ -120,7 +120,9 @@ IMPORTANT rules for tool use:
           result,
         });
         if (onEvent) onEvent('tool_result', { name: call.function.name, result });
-        messages.push({ role: 'tool', content: JSON.stringify(result), _toolName: call.function.name });
+        // Truncate tool results to avoid exceeding model context
+        const resultStr = JSON.stringify(result);
+        messages.push({ role: 'tool', content: resultStr.slice(0, 12000), _toolName: call.function.name });
       }
     }
 

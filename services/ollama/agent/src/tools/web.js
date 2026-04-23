@@ -66,7 +66,7 @@ async function searchDDG(query, limit = 8) {
         const parsed = new URL(href, 'https://duckduckgo.com');
         realUrl = parsed.searchParams.get('uddg') || href;
       } catch {}
-      results.push({ title, url: realUrl, snippet });
+      results.push({ title, url: realUrl, snippet: snippet.slice(0, 200) });
     }
   });
 
@@ -176,7 +176,7 @@ export function register(registry) {
           title: result.title,
           url: result.url,
           snippet: result.snippet,
-          content: text.length >= 100 ? text.slice(0, 4000) : null,
+          content: text.length >= 100 ? text.slice(0, 3000) : null,
         };
       } catch {
         return { title: result.title, url: result.url, snippet: result.snippet, content: null };
