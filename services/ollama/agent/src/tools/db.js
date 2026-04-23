@@ -5,7 +5,7 @@ export function register(registry) {
     type: 'function',
     function: {
       name: 'query_database',
-      description: 'Execute a SQL query against the PostgreSQL database. You can create your own tables and read/write them freely. The agents and channels tables are read-only. Use parameterized queries for safety.',
+      description: 'Execute a SQL query against the PostgreSQL database. You have full read and write access: CREATE TABLE, INSERT, UPDATE, DELETE, SELECT. Use this to store and retrieve structured data. Examples: "CREATE TABLE notes (id SERIAL, title TEXT, body TEXT, created_at TIMESTAMPTZ DEFAULT NOW())", "INSERT INTO notes (title, body) VALUES ($1, $2)", "SELECT * FROM notes ORDER BY created_at DESC LIMIT 10", "UPDATE notes SET body = $1 WHERE id = $2". The agents, channels, and models tables are read-only.',
       parameters: {
         type: 'object',
         properties: {

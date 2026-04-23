@@ -14,7 +14,7 @@ export function register(registry) {
     type: 'function',
     function: {
       name: 'file_operation',
-      description: 'Read, write, list, or delete files in the agent workspace.',
+      description: 'Read, write, list, or delete files in the agent workspace. Examples: list "." to see all files, write "notes.md" with content, read "config.json", delete "old.txt". Use this to persist data between conversations.',
       parameters: {
         type: 'object',
         properties: {

@@ -27,7 +27,7 @@ export function register(registry) {
     type: 'function',
     function: {
       name: 'manage_cron',
-      description: 'Create, remove, or list scheduled cron jobs. Jobs persist across restarts.',
+      description: 'Create, remove, or list scheduled cron jobs. Jobs persist across restarts. Examples: add a job with expression "0 9 * * *" (daily at 9am), "*/30 * * * *" (every 30 min), "0 0 * * 1" (every Monday midnight). The prompt is what you will be asked to do when the job triggers.',
       parameters: {
         type: 'object',
         properties: {

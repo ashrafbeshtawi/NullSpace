@@ -6,7 +6,7 @@ export function register(registry) {
     type: 'function',
     function: {
       name: 'run_command',
-      description: 'Execute a shell command in the container. Working directory is the agent workspace.',
+      description: 'Execute a shell command in the container. Working directory is the agent workspace. Examples: "ls -la", "curl https://example.com", "cat /etc/os-release", "df -h", "python3 -c \'print(2+2)\'", "git clone https://...".',
       parameters: {
         type: 'object',
         properties: {
