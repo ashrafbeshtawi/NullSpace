@@ -226,6 +226,17 @@ export function createWebServer(agent) {
         if (!r.ok) { const t = await r.text(); return res.json({ ok: false, error: `${r.status}: ${t.slice(0, 200)}` }); }
         const data = await r.json();
         res.json({ ok: true, reply: data.choices?.[0]?.message?.content || '(empty)' });
+      } else if (provider === 'google') {
+        const url = `${base_url || 'https://generativelanguage.googleapis.com'}/v1beta/models/${model_id}:generateContent?key=${api_key}`;
+        const r = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: 'Say "ok" and nothing else.' }] }] }),
+        });
+        if (!r.ok) { const t = await r.text(); return res.json({ ok: false, error: `${r.status}: ${t.slice(0, 200)}` }); }
+        const data = await r.json();
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '(empty)';
+        res.json({ ok: true, reply: text });
       } else {
         const r = await fetch(`${base_url || 'http://127.0.0.1:11434'}/api/chat`, {
           method: 'POST',

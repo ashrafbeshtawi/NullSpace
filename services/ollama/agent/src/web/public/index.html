@@ -311,6 +311,12 @@
                 });
                 if (res.status === 401) return window.location.href = '/login';
 
+                // Tool calls container (live)
+                var toolsDiv = document.createElement('div');
+                toolsDiv.style.display = 'none';
+                msgDiv.insertBefore(toolsDiv, contentDiv);
+                var pendingToolNames = [];
+
                 var reader = res.body.getReader();
                 var decoder = new TextDecoder();
                 var buffer = '', thinkingText = '', contentText = '', eventType = null;
@@ -342,9 +348,17 @@
                                 contentDiv.textContent = contentText;
                                 statusRow.querySelector('.status-text').textContent = 'Generating...';
                             } else if (eventType === 'tool_calls') {
-                                statusRow.querySelector('.status-text').textContent = 'Using tools...';
+                                toolsDiv.style.display = 'block';
+                                toolsDiv.className = 'thinking-block';
+                                pendingToolNames = data.map(function(tc) { return tc.function.name; });
+                                var args = data.map(function(tc) { return tc.function.name + '(' + JSON.stringify(tc.function.arguments).slice(0, 150) + ')'; }).join('\n');
+                                toolsDiv.innerHTML = '<div class="thinking-toggle" onclick="this.nextElementSibling.classList.toggle(\'open\')">&#128295; ' + escapeHtml(pendingToolNames.join(', ')) + '</div><div class="thinking-content open">' + escapeHtml(args) + '</div>';
+                                statusRow.querySelector('.status-text').textContent = 'Using: ' + pendingToolNames.join(', ');
                             } else if (eventType === 'tool_result') {
-                                statusRow.querySelector('.status-text').textContent = 'Processing results...';
+                                var resultStr = JSON.stringify(data.result).slice(0, 500);
+                                var tcContent = toolsDiv.querySelector('.thinking-content');
+                                if (tcContent) tcContent.textContent += '\n\n> ' + data.name + ' result:\n' + resultStr;
+                                statusRow.querySelector('.status-text').textContent = 'Got result from ' + data.name;
                             } else if (eventType === 'done') {
                                 sessionId = data.sessionId;
                                 loadSessions();
@@ -363,6 +377,10 @@
                 if (thinkingText) {
                     thinkDiv.querySelector('.thinking-toggle').innerHTML = '&#9656; Thinking';
                     thinkDiv.querySelector('.thinking-content').classList.remove('open');
+                }
+                if (toolsDiv.style.display !== 'none') {
+                    var tc = toolsDiv.querySelector('.thinking-content');
+                    if (tc) tc.classList.remove('open');
                 }
             } catch (err) {
                 contentDiv.textContent = 'Error: ' + err.message;

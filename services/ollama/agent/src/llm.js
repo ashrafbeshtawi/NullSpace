@@ -1,204 +1,241 @@
 import config from './config.js';
 
-function isOpenRouter(opts) {
-  return opts.provider === 'openrouter';
-}
-
-function buildOpenRouterMessages(messages) {
-  return messages.map(m => {
-    if (m.role === 'system' || m.role === 'user' || m.role === 'assistant' || m.role === 'tool') {
-      const msg = { role: m.role, content: m.content || '' };
-      if (m.tool_calls) msg.tool_calls = m.tool_calls;
-      if (m.role === 'tool' && m.tool_call_id) msg.tool_call_id = m.tool_call_id;
-      return msg;
-    }
-    return m;
-  });
-}
-
-function buildOpenRouterTools(tools) {
-  return tools.map(t => ({ type: 'function', function: t.function }));
-}
-
-// --- Ollama ---
+// --- Router ---
 
 export async function chat(messages, tools = [], opts = {}) {
-  if (isOpenRouter(opts)) return chatOpenRouter(messages, tools, opts);
-
-  const baseUrl = opts.baseUrl || config.ollama.url;
-  const model = opts.model || config.ollama.model;
-  const think = opts.think ?? config.ollama.think;
-
-  const body = { model, messages, stream: false, think };
-  if (tools.length > 0) body.tools = tools;
-
-  const res = await fetch(`${baseUrl}/api/chat`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Ollama API error ${res.status}: ${text}`);
-  }
-
-  const data = await res.json();
-  return data.message;
+  if (opts.provider === 'openrouter') return chatOpenAI(messages, tools, opts);
+  if (opts.provider === 'google') return chatGoogle(messages, tools, opts);
+  return chatOllama(messages, tools, opts);
 }
 
 export async function chatStream(messages, tools = [], opts = {}, onEvent) {
-  if (isOpenRouter(opts)) return chatStreamOpenRouter(messages, tools, opts, onEvent);
+  if (opts.provider === 'openrouter') return chatStreamOpenAI(messages, tools, opts, onEvent);
+  if (opts.provider === 'google') return chatStreamGoogle(messages, tools, opts, onEvent);
+  return chatStreamOllama(messages, tools, opts, onEvent);
+}
 
+// ============================================================
+// Ollama
+// ============================================================
+
+async function chatOllama(messages, tools, opts) {
   const baseUrl = opts.baseUrl || config.ollama.url;
-  const model = opts.model || config.ollama.model;
-  const think = opts.think ?? config.ollama.think;
-
-  const body = { model, messages, stream: true, think };
+  const body = { model: opts.model || config.ollama.model, messages, stream: false, think: opts.think ?? config.ollama.think };
   if (tools.length > 0) body.tools = tools;
 
   const res = await fetch(`${baseUrl}/api/chat`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
   });
+  if (!res.ok) throw new Error(`Ollama ${res.status}: ${(await res.text()).slice(0, 200)}`);
+  return (await res.json()).message;
+}
 
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Ollama API error ${res.status}: ${text}`);
+async function chatStreamOllama(messages, tools, opts, onEvent) {
+  const baseUrl = opts.baseUrl || config.ollama.url;
+  const body = { model: opts.model || config.ollama.model, messages, stream: true, think: opts.think ?? config.ollama.think };
+  if (tools.length > 0) body.tools = tools;
+
+  const res = await fetch(`${baseUrl}/api/chat`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`Ollama ${res.status}: ${(await res.text()).slice(0, 200)}`);
+
+  let fullContent = '', fullThinking = '', toolCalls = null;
+  for await (const line of readLines(res)) {
+    let chunk; try { chunk = JSON.parse(line); } catch { continue; }
+    if (chunk.message?.thinking) { fullThinking += chunk.message.thinking; onEvent?.('thinking', chunk.message.thinking); }
+    if (chunk.message?.content) { fullContent += chunk.message.content; onEvent?.('content', chunk.message.content); }
+    if (chunk.message?.tool_calls) toolCalls = chunk.message.tool_calls;
   }
-
-  let fullContent = '';
-  let fullThinking = '';
-  let toolCalls = null;
-
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split('\n');
-    buffer = lines.pop();
-
-    for (const line of lines) {
-      if (!line.trim()) continue;
-      let chunk;
-      try { chunk = JSON.parse(line); } catch { continue; }
-      if (chunk.message?.thinking) { fullThinking += chunk.message.thinking; if (onEvent) onEvent('thinking', chunk.message.thinking); }
-      if (chunk.message?.content) { fullContent += chunk.message.content; if (onEvent) onEvent('content', chunk.message.content); }
-      if (chunk.message?.tool_calls) { toolCalls = chunk.message.tool_calls; }
-    }
-  }
-
   return { role: 'assistant', content: fullContent, thinking: fullThinking, tool_calls: toolCalls || undefined };
 }
 
-// --- OpenRouter (OpenAI-compatible) ---
+// ============================================================
+// OpenAI-compatible (OpenRouter)
+// ============================================================
 
-async function chatOpenRouter(messages, tools, opts) {
-  const body = {
-    model: opts.model,
-    messages: buildOpenRouterMessages(messages),
-    stream: false,
-  };
-  if (tools.length > 0) body.tools = buildOpenRouterTools(tools);
-
-  const res = await fetch(`${opts.baseUrl}/api/v1/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${opts.apiKey}`,
-      'HTTP-Referer': 'https://dogeclaw.beshtawi.online',
-    },
-    body: JSON.stringify(body),
+function toOpenAIMessages(messages) {
+  return messages.map(m => {
+    const msg = { role: m.role, content: m.content || '' };
+    if (m.tool_calls) msg.tool_calls = m.tool_calls;
+    return msg;
   });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`OpenRouter API error ${res.status}: ${text}`);
-  }
-
-  const data = await res.json();
-  const choice = data.choices?.[0]?.message;
-  return {
-    role: 'assistant',
-    content: choice?.content || '',
-    tool_calls: choice?.tool_calls?.map(tc => ({
-      function: { name: tc.function.name, arguments: JSON.parse(tc.function.arguments || '{}') },
-    })) || undefined,
-  };
 }
 
-async function chatStreamOpenRouter(messages, tools, opts, onEvent) {
-  const body = {
-    model: opts.model,
-    messages: buildOpenRouterMessages(messages),
-    stream: true,
-  };
-  if (tools.length > 0) body.tools = buildOpenRouterTools(tools);
+function toOpenAITools(tools) {
+  return tools.map(t => ({ type: 'function', function: t.function }));
+}
+
+function parseOpenAIToolCalls(tcs) {
+  if (!tcs?.length) return undefined;
+  return tcs.map(tc => ({
+    function: { name: tc.function.name, arguments: typeof tc.function.arguments === 'string' ? JSON.parse(tc.function.arguments) : tc.function.arguments },
+  }));
+}
+
+async function chatOpenAI(messages, tools, opts) {
+  const body = { model: opts.model, messages: toOpenAIMessages(messages), stream: false };
+  if (tools.length > 0) body.tools = toOpenAITools(tools);
 
   const res = await fetch(`${opts.baseUrl}/api/v1/chat/completions`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${opts.apiKey}`,
-      'HTTP-Referer': 'https://dogeclaw.beshtawi.online',
-    },
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${opts.apiKey}`, 'HTTP-Referer': 'https://dogeclaw.beshtawi.online' },
     body: JSON.stringify(body),
   });
+  if (!res.ok) throw new Error(`OpenRouter ${res.status}: ${(await res.text()).slice(0, 200)}`);
 
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`OpenRouter API error ${res.status}: ${text}`);
+  const choice = (await res.json()).choices?.[0]?.message;
+  return { role: 'assistant', content: choice?.content || '', tool_calls: parseOpenAIToolCalls(choice?.tool_calls) };
+}
+
+async function chatStreamOpenAI(messages, tools, opts, onEvent) {
+  const body = { model: opts.model, messages: toOpenAIMessages(messages), stream: true };
+  if (tools.length > 0) body.tools = toOpenAITools(tools);
+
+  const res = await fetch(`${opts.baseUrl}/api/v1/chat/completions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${opts.apiKey}`, 'HTTP-Referer': 'https://dogeclaw.beshtawi.online' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`OpenRouter ${res.status}: ${(await res.text()).slice(0, 200)}`);
+
+  let fullContent = '', toolCalls = [], currentIdx = -1;
+  for await (const line of readLines(res)) {
+    if (!line.startsWith('data: ') || line === 'data: [DONE]') continue;
+    let chunk; try { chunk = JSON.parse(line.slice(6)); } catch { continue; }
+    const delta = chunk.choices?.[0]?.delta;
+    if (!delta) continue;
+    if (delta.content) { fullContent += delta.content; onEvent?.('content', delta.content); }
+    if (delta.tool_calls) {
+      for (const tc of delta.tool_calls) {
+        if (tc.index !== undefined && tc.index !== currentIdx) { currentIdx = tc.index; toolCalls.push({ function: { name: '', arguments: '' } }); }
+        const cur = toolCalls[toolCalls.length - 1];
+        if (tc.function?.name) cur.function.name += tc.function.name;
+        if (tc.function?.arguments) cur.function.arguments += tc.function.arguments;
+      }
+    }
   }
+  const parsed = toolCalls.length ? toolCalls.map(tc => ({ function: { name: tc.function.name, arguments: JSON.parse(tc.function.arguments || '{}') } })) : undefined;
+  return { role: 'assistant', content: fullContent, tool_calls: parsed };
+}
+
+// ============================================================
+// Google Gemini
+// ============================================================
+
+function toGeminiContents(messages) {
+  const contents = [];
+  let systemInstruction = null;
+
+  for (const m of messages) {
+    if (m.role === 'system') {
+      systemInstruction = { parts: [{ text: m.content }] };
+      continue;
+    }
+    const role = m.role === 'assistant' ? 'model' : 'user';
+    if (m.role === 'tool') {
+      contents.push({
+        role: 'function',
+        parts: [{ functionResponse: { name: m._toolName || 'tool', response: { result: m.content } } }],
+      });
+      continue;
+    }
+    const parts = [{ text: m.content || '' }];
+    if (m.tool_calls) {
+      for (const tc of m.tool_calls) {
+        parts.push({ functionCall: { name: tc.function.name, args: tc.function.arguments } });
+      }
+    }
+    contents.push({ role, parts });
+  }
+  return { contents, systemInstruction };
+}
+
+function toGeminiTools(tools) {
+  if (!tools.length) return undefined;
+  return [{ functionDeclarations: tools.map(t => {
+    const fn = t.function;
+    return { name: fn.name, description: fn.description, parameters: fn.parameters };
+  }) }];
+}
+
+function parseGeminiResponse(candidate) {
+  let content = '';
+  const toolCalls = [];
+  for (const part of (candidate?.content?.parts || [])) {
+    if (part.text) content += part.text;
+    if (part.functionCall) {
+      toolCalls.push({ function: { name: part.functionCall.name, arguments: part.functionCall.args || {} } });
+    }
+  }
+  return { role: 'assistant', content, tool_calls: toolCalls.length ? toolCalls : undefined };
+}
+
+async function chatGoogle(messages, tools, opts) {
+  const { contents, systemInstruction } = toGeminiContents(messages);
+  const body = { contents };
+  if (systemInstruction) body.systemInstruction = systemInstruction;
+  const geminiTools = toGeminiTools(tools);
+  if (geminiTools) body.tools = geminiTools;
+
+  const url = `${opts.baseUrl || 'https://generativelanguage.googleapis.com'}/v1beta/models/${opts.model}:generateContent?key=${opts.apiKey}`;
+  const res = await fetch(url, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`Google ${res.status}: ${(await res.text()).slice(0, 200)}`);
+
+  const data = await res.json();
+  return parseGeminiResponse(data.candidates?.[0]);
+}
+
+async function chatStreamGoogle(messages, tools, opts, onEvent) {
+  const { contents, systemInstruction } = toGeminiContents(messages);
+  const body = { contents };
+  if (systemInstruction) body.systemInstruction = systemInstruction;
+  const geminiTools = toGeminiTools(tools);
+  if (geminiTools) body.tools = geminiTools;
+
+  const url = `${opts.baseUrl || 'https://generativelanguage.googleapis.com'}/v1beta/models/${opts.model}:streamGenerateContent?alt=sse&key=${opts.apiKey}`;
+  const res = await fetch(url, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`Google ${res.status}: ${(await res.text()).slice(0, 200)}`);
 
   let fullContent = '';
-  let toolCalls = [];
-  let currentToolIdx = -1;
+  const toolCalls = [];
 
+  for await (const line of readLines(res)) {
+    if (!line.startsWith('data: ')) continue;
+    let chunk; try { chunk = JSON.parse(line.slice(6)); } catch { continue; }
+    const parts = chunk.candidates?.[0]?.content?.parts || [];
+    for (const part of parts) {
+      if (part.text) { fullContent += part.text; onEvent?.('content', part.text); }
+      if (part.functionCall) {
+        toolCalls.push({ function: { name: part.functionCall.name, arguments: part.functionCall.args || {} } });
+      }
+    }
+  }
+
+  return { role: 'assistant', content: fullContent, tool_calls: toolCalls.length ? toolCalls : undefined };
+}
+
+// ============================================================
+// Shared utils
+// ============================================================
+
+async function* readLines(res) {
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
-
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
     buffer += decoder.decode(value, { stream: true });
     const lines = buffer.split('\n');
     buffer = lines.pop();
-
     for (const line of lines) {
-      if (!line.startsWith('data: ') || line === 'data: [DONE]') continue;
-      let chunk;
-      try { chunk = JSON.parse(line.slice(6)); } catch { continue; }
-      const delta = chunk.choices?.[0]?.delta;
-      if (!delta) continue;
-
-      if (delta.content) {
-        fullContent += delta.content;
-        if (onEvent) onEvent('content', delta.content);
-      }
-      if (delta.tool_calls) {
-        for (const tc of delta.tool_calls) {
-          if (tc.index !== undefined && tc.index !== currentToolIdx) {
-            currentToolIdx = tc.index;
-            toolCalls.push({ function: { name: '', arguments: '' } });
-          }
-          const current = toolCalls[toolCalls.length - 1];
-          if (tc.function?.name) current.function.name += tc.function.name;
-          if (tc.function?.arguments) current.function.arguments += tc.function.arguments;
-        }
-      }
+      if (line.trim()) yield line;
     }
   }
-
-  // Parse accumulated tool call arguments
-  const parsedToolCalls = toolCalls.length > 0 ? toolCalls.map(tc => ({
-    function: { name: tc.function.name, arguments: JSON.parse(tc.function.arguments || '{}') },
-  })) : undefined;
-
-  return { role: 'assistant', content: fullContent, tool_calls: parsedToolCalls };
+  if (buffer.trim()) yield buffer;
 }

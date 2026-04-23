@@ -164,35 +164,56 @@ export function register(registry) {
     const sitesToVisit = Math.min(num_sites || 3, 5);
 
     // Step 1: Search
-    const searchResults = await searchDDG(query, sitesToVisit + 3); // fetch a few extra in case some fail
+    const searchResults = await searchDDG(query, sitesToVisit + 4);
+    if (!searchResults.length) return { query, sources: [], content: '(no search results found)' };
 
     // Step 2: Fetch top results in parallel
-    const fetches = searchResults.slice(0, sitesToVisit + 2).map(async (result) => {
+    const fetches = searchResults.slice(0, sitesToVisit + 3).map(async (result) => {
       try {
         const { html } = await fetchPage(result.url, 12000);
         const text = extractText(html);
-        if (text.length < 50) return null; // skip empty pages
         return {
           title: result.title,
           url: result.url,
-          content: text.slice(0, 4000),
+          snippet: result.snippet,
+          content: text.length >= 100 ? text.slice(0, 4000) : null,
         };
       } catch {
-        return null;
+        return { title: result.title, url: result.url, snippet: result.snippet, content: null };
       }
     });
 
-    const pages = (await Promise.all(fetches)).filter(Boolean).slice(0, sitesToVisit);
+    const allPages = await Promise.all(fetches);
 
-    // Step 3: Build combined report
-    const report = pages.map((p, i) =>
-      `--- Source ${i + 1}: ${p.title} (${p.url}) ---\n${p.content}`
-    ).join('\n\n');
+    // Step 3: Build report — use fetched content when available, fall back to search snippets
+    const sources = [];
+    const parts = [];
+    let idx = 0;
+
+    for (const p of allPages) {
+      if (idx >= sitesToVisit) break;
+      const text = p.content || p.snippet;
+      if (!text) continue;
+      idx++;
+      sources.push({ title: p.title, url: p.url });
+      const label = p.content ? '(full page)' : '(snippet)';
+      parts.push(`--- Source ${idx}: ${p.title} ${label} ---\n${p.url}\n${text}`);
+    }
+
+    // If no pages had content, use all snippets
+    if (parts.length === 0) {
+      for (const r of searchResults.slice(0, sitesToVisit)) {
+        if (r.snippet) {
+          sources.push({ title: r.title, url: r.url });
+          parts.push(`--- ${r.title} ---\n${r.url}\n${r.snippet}`);
+        }
+      }
+    }
 
     return {
       query,
-      sources: pages.map(p => ({ title: p.title, url: p.url })),
-      content: report || '(no content could be extracted from search results)',
+      sources,
+      content: parts.join('\n\n') || '(no content could be extracted)',
     };
   });
 }

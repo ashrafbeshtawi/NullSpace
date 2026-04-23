@@ -114,6 +114,7 @@
             <select id="modelProvider" onchange="onProviderChange()">
                 <option value="ollama">Ollama (local)</option>
                 <option value="openrouter">OpenRouter</option>
+                <option value="google">Google Gemini</option>
             </select>
             <label>Base URL</label>
             <input type="text" id="modelBaseUrl" placeholder="http://127.0.0.1:11434">
@@ -247,16 +248,22 @@
             var p = document.getElementById('modelProvider').value;
             var urlInput = document.getElementById('modelBaseUrl');
             var keyRow = document.getElementById('apiKeyRow');
+            var modelInput = document.getElementById('modelModelId');
             if (p === 'openrouter') {
                 urlInput.value = 'https://openrouter.ai';
                 urlInput.placeholder = 'https://openrouter.ai';
                 keyRow.style.display = 'block';
-                document.getElementById('modelModelId').placeholder = 'anthropic/claude-sonnet-4';
+                modelInput.placeholder = 'anthropic/claude-sonnet-4';
+            } else if (p === 'google') {
+                urlInput.value = 'https://generativelanguage.googleapis.com';
+                urlInput.placeholder = 'https://generativelanguage.googleapis.com';
+                keyRow.style.display = 'block';
+                modelInput.placeholder = 'gemini-2.5-flash';
             } else {
                 urlInput.value = 'http://127.0.0.1:11434';
                 urlInput.placeholder = 'http://127.0.0.1:11434';
                 keyRow.style.display = 'none';
-                document.getElementById('modelModelId').placeholder = 'gemma4:e2b';
+                modelInput.placeholder = 'gemma4:e2b';
             }
         }
 
