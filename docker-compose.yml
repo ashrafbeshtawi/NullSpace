@@ -116,7 +116,7 @@ services:
 
   ollama:
     build: ./services/ollama
-    container_name: ollama
+    container_name: dogeclaw
     environment:
       - DOGECLAW_OLLAMA_URL=${DOGECLAW_OLLAMA_URL:-http://127.0.0.1:11434}
       - DOGECLAW_MODEL=${DOGECLAW_MODEL:-gemma4:e2b}

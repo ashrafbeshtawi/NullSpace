@@ -3,22 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DogeClaw - Login</title>
+    <title>DogeClaw</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, sans-serif; background: #060609; color: #e2e8f0; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
-        .login { background: #0c0c14; border: 1px solid rgba(255,255,255,0.05); border-radius: 16px; padding: 2.5rem; width: 100%; max-width: 360px; }
-        h1 { font-size: 1.5rem; text-align: center; margin-bottom: 1.5rem; font-weight: 800; }
-        input { width: 100%; padding: 0.7rem 1rem; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; background: #060609; color: #e2e8f0; font-size: 0.9rem; margin-bottom: 0.75rem; outline: none; }
-        input:focus { border-color: #34d399; }
-        button { width: 100%; padding: 0.7rem; border: none; border-radius: 8px; background: #34d399; color: #060609; font-weight: 700; font-size: 0.9rem; cursor: pointer; }
-        button:hover { background: #2ac084; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0a0a0f; color: #e2e8f0; min-height: 100vh; display: flex; align-items: center; justify-content: center; background-image: radial-gradient(ellipse at 50% 0%, rgba(220,38,38,0.08) 0%, transparent 60%); }
+        .login { background: linear-gradient(135deg, #12121c 0%, #0e0e16 100%); border: 1px solid rgba(220,38,38,0.15); border-radius: 20px; padding: 2.5rem; width: 100%; max-width: 380px; box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 40px rgba(220,38,38,0.05); }
+        .logo { text-align: center; margin-bottom: 1.5rem; }
+        .logo img { width: 120px; height: auto; filter: drop-shadow(0 4px 12px rgba(220,38,38,0.3)); }
+        h1 { font-size: 1.4rem; text-align: center; margin-bottom: 0.3rem; font-weight: 800; letter-spacing: -0.02em; }
+        .subtitle { text-align: center; color: #64748b; font-size: 0.8rem; margin-bottom: 1.5rem; }
+        input { width: 100%; padding: 0.75rem 1rem; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; background: rgba(255,255,255,0.03); color: #e2e8f0; font-size: 0.9rem; margin-bottom: 0.75rem; outline: none; transition: border-color 0.2s; }
+        input:focus { border-color: #dc2626; }
+        button { width: 100%; padding: 0.75rem; border: none; border-radius: 10px; background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); color: #fff; font-weight: 700; font-size: 0.9rem; cursor: pointer; transition: transform 0.1s, box-shadow 0.2s; }
+        button:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(220,38,38,0.4); }
+        button:active { transform: translateY(0); }
         .error { color: #f87171; font-size: 0.8rem; text-align: center; margin-top: 0.5rem; display: none; }
     </style>
 </head>
 <body>
     <div class="login">
+        <div class="logo"><img src="/static/logo.png" alt="DogeClaw"></div>
         <h1>DogeClaw</h1>
+        <div class="subtitle">wow. much AI. very agent.</div>
         <form id="form">
             <input type="text" name="user" placeholder="Username" autocomplete="username" required>
             <input type="password" name="password" placeholder="Password" autocomplete="current-password" required>
@@ -35,8 +41,8 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ user: form.get('user'), password: form.get('password') }),
             });
-            if (res.ok) { window.location.href = '/'; }
-            else { document.getElementById('error').style.display = 'block'; }
+            if (res.ok) window.location.href = '/';
+            else document.getElementById('error').style.display = 'block';
         });
     </script>
 </body>

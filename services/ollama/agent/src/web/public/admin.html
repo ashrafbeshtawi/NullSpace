@@ -6,76 +6,101 @@
     <title>DogeClaw - Admin</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, sans-serif; background: #060609; color: #e2e8f0; min-height: 100vh; padding: 2rem; }
-        .header { display: flex; align-items: center; gap: 1rem; margin-bottom: 2rem; }
-        .header h1 { font-size: 1.5rem; font-weight: 800; }
-        .header a { color: #34d399; font-size: 0.85rem; text-decoration: none; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0a0a0f; color: #e2e8f0; min-height: 100vh; background-image: radial-gradient(ellipse at 50% 0%, rgba(220,38,38,0.06) 0%, transparent 50%); }
+        .topbar { padding: 1rem 2rem; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; align-items: center; gap: 0.75rem; background: #0e0e16; }
+        .topbar img { width: 32px; }
+        .topbar h1 { font-size: 1.15rem; font-weight: 800; letter-spacing: -0.02em; flex: 1; }
+        .topbar a { color: #dc2626; font-size: 0.85rem; text-decoration: none; font-weight: 600; transition: opacity 0.15s; }
+        .topbar a:hover { opacity: 0.8; }
+        .container { max-width: 960px; margin: 0 auto; padding: 2rem; }
         .section { margin-bottom: 2.5rem; }
-        .section h2 { font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.75rem; }
-        .section h2 button { background: #34d399; color: #060609; border: none; border-radius: 6px; padding: 0.3rem 0.7rem; font-size: 0.75rem; cursor: pointer; font-weight: 700; }
-        table { width: 100%; border-collapse: collapse; background: #0c0c14; border-radius: 10px; overflow: hidden; }
-        th, td { padding: 0.6rem 1rem; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 0.85rem; }
-        th { color: #64748b; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
-        td .actions { display: flex; gap: 0.5rem; }
-        td .actions button { background: transparent; border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; color: #94a3b8; padding: 0.2rem 0.5rem; font-size: 0.75rem; cursor: pointer; }
-        td .actions button:hover { border-color: rgba(255,255,255,0.3); color: #e2e8f0; }
-        td .actions button.danger { color: #f87171; }
-        .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; align-items: center; justify-content: center; }
+        .section-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; }
+        .section-header h2 { font-size: 1rem; font-weight: 700; }
+        .section-header button { background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); color: #fff; border: none; border-radius: 8px; padding: 0.35rem 0.8rem; font-size: 0.75rem; cursor: pointer; font-weight: 700; transition: box-shadow 0.2s; }
+        .section-header button:hover { box-shadow: 0 4px 15px rgba(220,38,38,0.3); }
+        table { width: 100%; border-collapse: collapse; background: #0e0e16; border-radius: 12px; overflow: hidden; border: 1px solid rgba(255,255,255,0.05); }
+        th, td { padding: 0.65rem 1rem; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 0.85rem; }
+        th { color: #64748b; font-weight: 600; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; background: rgba(255,255,255,0.02); }
+        tr:hover td { background: rgba(255,255,255,0.015); }
+        td .actions { display: flex; gap: 0.4rem; }
+        td .actions button { background: transparent; border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; color: #94a3b8; padding: 0.25rem 0.6rem; font-size: 0.75rem; cursor: pointer; transition: all 0.15s; }
+        td .actions button:hover { border-color: rgba(255,255,255,0.2); color: #e2e8f0; }
+        td .actions button.danger { color: #f87171; border-color: rgba(248,113,113,0.2); }
+        td .actions button.danger:hover { background: rgba(248,113,113,0.08); }
+        .badge { font-size: 0.65rem; padding: 0.2rem 0.5rem; border-radius: 5px; font-weight: 600; }
+        .badge-on { background: rgba(52,211,153,0.12); color: #34d399; }
+        .badge-off { background: rgba(248,113,113,0.12); color: #f87171; }
+        .badge-tag { background: rgba(96,165,250,0.1); color: #60a5fa; margin-right: 0.2rem; }
+        .hint { font-size: 0.75rem; color: #475569; margin-top: 0.75rem; padding-left: 0.25rem; }
+        .hint code { color: #dc2626; background: rgba(220,38,38,0.08); padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.7rem; }
+
+        /* Modal */
+        .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 100; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
         .modal-overlay.open { display: flex; }
-        .modal { background: #0c0c14; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 1.5rem; width: 100%; max-width: 500px; max-height: 90vh; overflow-y: auto; }
-        .modal h3 { margin-bottom: 1rem; font-size: 1rem; }
-        .modal label { display: block; font-size: 0.8rem; color: #94a3b8; margin-bottom: 0.3rem; margin-top: 0.75rem; }
-        .modal input, .modal select, .modal textarea { width: 100%; padding: 0.5rem 0.7rem; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; background: #060609; color: #e2e8f0; font-size: 0.85rem; font-family: inherit; }
+        .modal { background: #12121c; border: 1px solid rgba(220,38,38,0.12); border-radius: 16px; padding: 1.75rem; width: 100%; max-width: 500px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+        .modal h3 { margin-bottom: 1.25rem; font-size: 1rem; font-weight: 700; }
+        .modal label { display: block; font-size: 0.8rem; color: #94a3b8; margin-bottom: 0.3rem; margin-top: 0.85rem; }
+        .modal input, .modal select, .modal textarea { width: 100%; padding: 0.55rem 0.75rem; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; background: rgba(255,255,255,0.03); color: #e2e8f0; font-size: 0.85rem; font-family: inherit; outline: none; transition: border-color 0.2s; }
+        .modal input:focus, .modal select:focus, .modal textarea:focus { border-color: rgba(220,38,38,0.4); }
         .modal textarea { min-height: 80px; resize: vertical; }
-        .modal .toggle { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.3rem; }
-        .modal .toggle input { width: auto; }
-        .modal .checks { display: flex; gap: 1rem; margin-top: 0.3rem; flex-wrap: wrap; }
-        .modal .checks label { display: flex; align-items: center; gap: 0.3rem; margin: 0; }
-        .modal .checks input { width: auto; }
-        .modal .btn-row { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1.25rem; }
-        .modal .btn-row button { padding: 0.5rem 1rem; border-radius: 6px; border: none; cursor: pointer; font-size: 0.85rem; font-weight: 600; }
-        .modal .btn-cancel { background: transparent; border: 1px solid rgba(255,255,255,0.1); color: #94a3b8; }
-        .modal .btn-save { background: #34d399; color: #060609; }
-        .badge { font-size: 0.7rem; padding: 0.15rem 0.4rem; border-radius: 4px; font-weight: 600; }
-        .badge-on { background: rgba(52,211,153,0.15); color: #34d399; }
-        .badge-off { background: rgba(248,113,113,0.15); color: #f87171; }
-        .badge-tag { background: rgba(96,165,250,0.15); color: #60a5fa; margin-right: 0.2rem; }
-        .hint { font-size: 0.75rem; color: #64748b; margin-top: 0.3rem; }
-        .hint code { color: #34d399; background: rgba(52,211,153,0.1); padding: 0.1rem 0.3rem; border-radius: 3px; }
+        .modal .toggle { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.4rem; }
+        .modal .toggle input { width: auto; accent-color: #dc2626; }
+        .modal .checks { display: flex; gap: 1rem; margin-top: 0.4rem; flex-wrap: wrap; }
+        .modal .checks label { display: flex; align-items: center; gap: 0.3rem; margin: 0; font-size: 0.8rem; }
+        .modal .checks input { width: auto; accent-color: #dc2626; }
+        .modal .field-hint { font-size: 0.7rem; color: #475569; margin-top: 0.25rem; }
+        .modal .btn-row { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1.5rem; }
+        .modal .btn-row button { padding: 0.55rem 1.1rem; border-radius: 8px; border: none; cursor: pointer; font-size: 0.85rem; font-weight: 600; transition: all 0.15s; }
+        .modal .btn-cancel { background: transparent; border: 1px solid rgba(255,255,255,0.08); color: #94a3b8; }
+        .modal .btn-cancel:hover { border-color: rgba(255,255,255,0.15); color: #e2e8f0; }
+        .modal .btn-save { background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); color: #fff; }
+        .modal .btn-save:hover { box-shadow: 0 4px 15px rgba(220,38,38,0.3); }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>DogeClaw Admin</h1>
+    <div class="topbar">
+        <img src="/static/logo.png" alt="DogeClaw">
+        <h1>Admin</h1>
         <a href="/">&larr; Back to Chat</a>
     </div>
 
-    <!-- Models -->
-    <div class="section">
-        <h2>Models <button onclick="openModelModal()">+ New Model</button></h2>
-        <table>
-            <thead><tr><th>Name</th><th>Provider</th><th>Model ID</th><th>Think</th><th>Accepts</th><th></th></tr></thead>
-            <tbody id="modelsTable"></tbody>
-        </table>
-    </div>
+    <div class="container">
+        <!-- Models -->
+        <div class="section">
+            <div class="section-header">
+                <h2>Models</h2>
+                <button onclick="openModelModal()">+ New Model</button>
+            </div>
+            <table>
+                <thead><tr><th>Name</th><th>Provider</th><th>Model ID</th><th>Think</th><th>Accepts</th><th></th></tr></thead>
+                <tbody id="modelsTable"></tbody>
+            </table>
+        </div>
 
-    <!-- Agents -->
-    <div class="section">
-        <h2>Agents <button onclick="openAgentModal()">+ New Agent</button></h2>
-        <table>
-            <thead><tr><th>Name</th><th>Model</th><th>System Prompt</th><th></th></tr></thead>
-            <tbody id="agentsTable"></tbody>
-        </table>
-    </div>
+        <!-- Agents -->
+        <div class="section">
+            <div class="section-header">
+                <h2>Agents</h2>
+                <button onclick="openAgentModal()">+ New Agent</button>
+            </div>
+            <table>
+                <thead><tr><th>Name</th><th>Model</th><th>System Prompt</th><th></th></tr></thead>
+                <tbody id="agentsTable"></tbody>
+            </table>
+        </div>
 
-    <!-- Channels -->
-    <div class="section">
-        <h2>Channels <button onclick="openChannelModal()">+ New Channel</button></h2>
-        <table>
-            <thead><tr><th>Name</th><th>Type</th><th>Agent</th><th>Mode</th><th>Enabled</th><th></th></tr></thead>
-            <tbody id="channelsTable"></tbody>
-        </table>
-        <div class="hint" style="margin-top:0.75rem" id="telegramModeHint"></div>
+        <!-- Channels -->
+        <div class="section">
+            <div class="section-header">
+                <h2>Channels</h2>
+                <button onclick="openChannelModal()">+ New Channel</button>
+            </div>
+            <table>
+                <thead><tr><th>Name</th><th>Type</th><th>Agent</th><th>Mode</th><th>Enabled</th><th></th></tr></thead>
+                <tbody id="channelsTable"></tbody>
+            </table>
+            <div class="hint" id="telegramModeHint"></div>
+        </div>
     </div>
 
     <!-- Model Modal -->
@@ -99,7 +124,7 @@
                 <label><input type="checkbox" id="acceptAudio"> audio</label>
                 <label><input type="checkbox" id="acceptVideo"> video</label>
             </div>
-            <div class="hint">If audio is checked, voice messages are forwarded directly to the model instead of being transcribed by Whisper first.</div>
+            <div class="field-hint">If audio is enabled, voice messages go directly to the model instead of Whisper transcription.</div>
             <div class="btn-row">
                 <button class="btn-cancel" onclick="closeModal('modelModal')">Cancel</button>
                 <button class="btn-save" onclick="saveModel()">Save</button>
@@ -132,16 +157,16 @@
             <input type="hidden" id="channelId">
             <label>Name</label>
             <input type="text" id="channelName" placeholder="my-telegram-bot">
-            <div class="hint">Used as webhook path: <code>/webhook/&lt;name&gt;</code></div>
+            <div class="field-hint">Used as webhook path: <code>/webhook/&lt;name&gt;</code></div>
             <label>Type</label>
             <select id="channelType"><option value="telegram">Telegram</option></select>
             <label>Agent</label>
             <select id="channelAgent"></select>
             <label>Bot Token</label>
             <input type="text" id="channelToken" placeholder="123456:ABC-DEF...">
-            <div class="hint" id="webhookHint"></div>
+            <div class="field-hint" id="webhookHint"></div>
             <label>Allowed Users (comma-separated Telegram user IDs)</label>
-            <input type="text" id="channelUsers" placeholder="123456789,987654321">
+            <input type="text" id="channelUsers" placeholder="748203222">
             <label>Response Mode</label>
             <select id="channelMode"><option value="immediate">Immediate</option><option value="periodic">Periodic</option></select>
             <label>Interval (for periodic, e.g. 30m, 1h)</label>
@@ -166,190 +191,138 @@
         }
 
         async function load() {
-            var results = await Promise.all([
-                api('GET', '/api/models'), api('GET', '/api/agents'),
-                api('GET', '/api/channels'), api('GET', '/api/config'),
-            ]);
-            models = results[0].models; agents = results[1].agents;
-            channels = results[2].channels; siteConfig = results[3];
+            var r = await Promise.all([api('GET','/api/models'),api('GET','/api/agents'),api('GET','/api/channels'),api('GET','/api/config')]);
+            models = r[0].models; agents = r[1].agents; channels = r[2].channels; siteConfig = r[3];
             renderModels(); renderAgents(); renderChannels();
             var mh = document.getElementById('telegramModeHint');
             mh.innerHTML = siteConfig.telegramMode === 'webhook' && siteConfig.webhookUrl
                 ? 'Telegram mode: <strong>webhook</strong> &mdash; <code>' + esc(siteConfig.webhookUrl) + '</code>'
-                : 'Telegram mode: <strong>polling</strong> (dev)';
+                : 'Telegram mode: <strong>polling</strong> (dev) &mdash; set <code>DOGECLAW_TELEGRAM_MODE=webhook</code> for production.';
         }
 
         function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-        function find(arr, id) { return arr.find(function(x) { return x.id === id; }); }
+        function find(arr,id) { return arr.find(function(x){return x.id===id;}); }
 
-        // --- Models ---
         function renderModels() {
             document.getElementById('modelsTable').innerHTML = models.map(function(m) {
-                var acc = (m.accepts || ['text']).map(function(a) { return '<span class="badge badge-tag">' + esc(a) + '</span>'; }).join('');
-                return '<tr><td><strong>' + esc(m.name) + '</strong></td><td>' + esc(m.provider) + '</td>'
-                    + '<td>' + esc(m.model_id) + '</td>'
-                    + '<td><span class="badge ' + (m.think ? 'badge-on' : 'badge-off') + '">' + (m.think ? 'on' : 'off') + '</span></td>'
-                    + '<td>' + acc + '</td>'
-                    + '<td class="actions"><button onclick="editModel(' + m.id + ')">Edit</button>'
-                    + '<button class="danger" onclick="deleteModel(' + m.id + ')">Delete</button></td></tr>';
+                var acc = (m.accepts||['text']).map(function(a){return '<span class="badge badge-tag">'+esc(a)+'</span>';}).join('');
+                return '<tr><td><strong>'+esc(m.name)+'</strong></td><td>'+esc(m.provider)+'</td><td><code>'+esc(m.model_id)+'</code></td>'
+                    +'<td><span class="badge '+(m.think?'badge-on':'badge-off')+'">'+(m.think?'on':'off')+'</span></td>'
+                    +'<td>'+acc+'</td><td class="actions"><button onclick="editModel('+m.id+')">Edit</button>'
+                    +'<button class="danger" onclick="deleteModel('+m.id+')">Delete</button></td></tr>';
             }).join('');
         }
 
+        function renderAgents() {
+            document.getElementById('agentsTable').innerHTML = agents.map(function(a) {
+                return '<tr><td><strong>'+esc(a.name)+'</strong></td><td>'+(esc(a.model_name)||'<span style="color:#475569">none</span>')+'</td>'
+                    +'<td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(a.system_prompt)+'</td>'
+                    +'<td class="actions"><button onclick="editAgent('+a.id+')">Edit</button>'
+                    +(a.id!==1?'<button class="danger" onclick="deleteAgent('+a.id+')">Delete</button>':'')+'</td></tr>';
+            }).join('');
+            document.getElementById('channelAgent').innerHTML = agents.map(function(a){return '<option value="'+a.id+'">'+esc(a.name)+'</option>';}).join('');
+        }
+
+        function renderChannels() {
+            document.getElementById('channelsTable').innerHTML = channels.map(function(c) {
+                return '<tr><td><strong>'+esc(c.name)+'</strong></td><td>'+esc(c.type)+'</td><td>'+esc(c.agent_name)+'</td>'
+                    +'<td>'+esc(c.response_mode)+(c.response_interval?' / '+esc(c.response_interval):'')+'</td>'
+                    +'<td><span class="badge '+(c.enabled?'badge-on':'badge-off')+'">'+(c.enabled?'on':'off')+'</span></td>'
+                    +'<td class="actions"><button onclick="editChannel('+c.id+')">Edit</button>'
+                    +'<button class="danger" onclick="deleteChannel('+c.id+')">Delete</button></td></tr>';
+            }).join('');
+        }
+
+        // Model CRUD
         function openModelModal(m) {
-            if (typeof m === 'number') m = find(models, m);
-            document.getElementById('modelModalTitle').textContent = m ? 'Edit Model' : 'New Model';
-            document.getElementById('modelFormId').value = m ? m.id : '';
-            document.getElementById('modelName').value = m ? m.name : '';
-            document.getElementById('modelProvider').value = m ? m.provider : 'ollama';
-            document.getElementById('modelBaseUrl').value = m ? m.base_url : 'http://127.0.0.1:11434';
-            document.getElementById('modelModelId').value = m ? m.model_id : '';
-            document.getElementById('modelThink').checked = m ? m.think : false;
-            var acc = m ? (m.accepts || ['text']) : ['text'];
+            if (typeof m==='number') m=find(models,m);
+            document.getElementById('modelModalTitle').textContent = m?'Edit Model':'New Model';
+            document.getElementById('modelFormId').value = m?m.id:'';
+            document.getElementById('modelName').value = m?m.name:'';
+            document.getElementById('modelProvider').value = m?m.provider:'ollama';
+            document.getElementById('modelBaseUrl').value = m?m.base_url:'http://127.0.0.1:11434';
+            document.getElementById('modelModelId').value = m?m.model_id:'';
+            document.getElementById('modelThink').checked = m?m.think:false;
+            var acc = m?(m.accepts||['text']):['text'];
             document.getElementById('acceptImage').checked = acc.includes('image');
             document.getElementById('acceptAudio').checked = acc.includes('audio');
             document.getElementById('acceptVideo').checked = acc.includes('video');
             document.getElementById('modelModal').classList.add('open');
         }
-        function editModel(id) { openModelModal(id); }
-
+        function editModel(id){openModelModal(id);}
         async function saveModel() {
             var id = document.getElementById('modelFormId').value;
             var acc = ['text'];
             if (document.getElementById('acceptImage').checked) acc.push('image');
             if (document.getElementById('acceptAudio').checked) acc.push('audio');
             if (document.getElementById('acceptVideo').checked) acc.push('video');
-            var body = {
-                name: document.getElementById('modelName').value,
-                provider: document.getElementById('modelProvider').value,
-                base_url: document.getElementById('modelBaseUrl').value,
-                model_id: document.getElementById('modelModelId').value,
-                think: document.getElementById('modelThink').checked,
-                accepts: acc,
-            };
-            if (id) await api('PUT', '/api/models/' + id, body);
-            else await api('POST', '/api/models', body);
+            var body = {name:document.getElementById('modelName').value, provider:document.getElementById('modelProvider').value,
+                base_url:document.getElementById('modelBaseUrl').value, model_id:document.getElementById('modelModelId').value,
+                think:document.getElementById('modelThink').checked, accepts:acc};
+            if (id) await api('PUT','/api/models/'+id,body); else await api('POST','/api/models',body);
             closeModal('modelModal'); load();
         }
+        async function deleteModel(id){if(!confirm('Delete this model?'))return;await api('DELETE','/api/models/'+id);load();}
 
-        async function deleteModel(id) {
-            if (!confirm('Delete this model?')) return;
-            await api('DELETE', '/api/models/' + id); load();
-        }
-
-        // --- Agents ---
-        function renderAgents() {
-            document.getElementById('agentsTable').innerHTML = agents.map(function(a) {
-                return '<tr><td><strong>' + esc(a.name) + '</strong></td>'
-                    + '<td>' + esc(a.model_name || '(none)') + '</td>'
-                    + '<td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(a.system_prompt) + '</td>'
-                    + '<td class="actions"><button onclick="editAgent(' + a.id + ')">Edit</button>'
-                    + (a.id !== 1 ? '<button class="danger" onclick="deleteAgent(' + a.id + ')">Delete</button>' : '')
-                    + '</td></tr>';
-            }).join('');
-            // Update agent selects in channel modal
-            document.getElementById('channelAgent').innerHTML = agents.map(function(a) {
-                return '<option value="' + a.id + '">' + esc(a.name) + '</option>';
-            }).join('');
-        }
-
+        // Agent CRUD
         function openAgentModal(a) {
-            if (typeof a === 'number') a = find(agents, a);
-            document.getElementById('agentModalTitle').textContent = a ? 'Edit Agent' : 'New Agent';
-            document.getElementById('agentId').value = a ? a.id : '';
-            document.getElementById('agentName').value = a ? a.name : '';
-            document.getElementById('agentPrompt').value = a ? a.system_prompt : '';
-            // Populate model dropdown
-            document.getElementById('agentModel').innerHTML =
-                '<option value="">(default)</option>' +
-                models.map(function(m) { return '<option value="' + m.id + '">' + esc(m.name) + ' (' + esc(m.model_id) + ')</option>'; }).join('');
-            document.getElementById('agentModel').value = a && a.model_id ? a.model_id : '';
+            if (typeof a==='number') a=find(agents,a);
+            document.getElementById('agentModalTitle').textContent = a?'Edit Agent':'New Agent';
+            document.getElementById('agentId').value = a?a.id:'';
+            document.getElementById('agentName').value = a?a.name:'';
+            document.getElementById('agentPrompt').value = a?a.system_prompt:'';
+            document.getElementById('agentModel').innerHTML = '<option value="">(default)</option>'+models.map(function(m){return '<option value="'+m.id+'">'+esc(m.name)+' ('+esc(m.model_id)+')</option>';}).join('');
+            document.getElementById('agentModel').value = a&&a.model_id?a.model_id:'';
             document.getElementById('agentModal').classList.add('open');
         }
-        function editAgent(id) { openAgentModal(id); }
-
+        function editAgent(id){openAgentModal(id);}
         async function saveAgent() {
             var id = document.getElementById('agentId').value;
             var mid = document.getElementById('agentModel').value;
-            var body = {
-                name: document.getElementById('agentName').value,
-                system_prompt: document.getElementById('agentPrompt').value,
-                model_id: mid ? parseInt(mid) : null,
-            };
-            if (id) await api('PUT', '/api/agents/' + id, body);
-            else await api('POST', '/api/agents', body);
+            var body = {name:document.getElementById('agentName').value, system_prompt:document.getElementById('agentPrompt').value, model_id:mid?parseInt(mid):null};
+            if (id) await api('PUT','/api/agents/'+id,body); else await api('POST','/api/agents',body);
             closeModal('agentModal'); load();
         }
+        async function deleteAgent(id){if(!confirm('Delete this agent?'))return;await api('DELETE','/api/agents/'+id);load();}
 
-        async function deleteAgent(id) {
-            if (!confirm('Delete this agent?')) return;
-            await api('DELETE', '/api/agents/' + id); load();
-        }
-
-        // --- Channels ---
-        function renderChannels() {
-            document.getElementById('channelsTable').innerHTML = channels.map(function(c) {
-                return '<tr><td><strong>' + esc(c.name) + '</strong></td>'
-                    + '<td>' + esc(c.type) + '</td><td>' + esc(c.agent_name) + '</td>'
-                    + '<td>' + esc(c.response_mode) + (c.response_interval ? ' / ' + esc(c.response_interval) : '') + '</td>'
-                    + '<td><span class="badge ' + (c.enabled ? 'badge-on' : 'badge-off') + '">' + (c.enabled ? 'on' : 'off') + '</span></td>'
-                    + '<td class="actions"><button onclick="editChannel(' + c.id + ')">Edit</button>'
-                    + '<button class="danger" onclick="deleteChannel(' + c.id + ')">Delete</button></td></tr>';
-            }).join('');
-        }
-
+        // Channel CRUD
         function updateWebhookHint() {
-            var hint = document.getElementById('webhookHint');
-            var name = document.getElementById('channelName').value;
-            if (siteConfig.telegramMode === 'webhook' && siteConfig.webhookUrl && name)
-                hint.innerHTML = 'Webhook: <code>' + esc(siteConfig.webhookUrl) + '/webhook/' + esc(name) + '</code>';
-            else if (siteConfig.telegramMode === 'polling')
-                hint.textContent = 'Using polling mode (dev).';
-            else hint.textContent = '';
+            var h = document.getElementById('webhookHint');
+            var n = document.getElementById('channelName').value;
+            if (siteConfig.telegramMode==='webhook'&&siteConfig.webhookUrl&&n) h.innerHTML='Webhook: <code>'+esc(siteConfig.webhookUrl)+'/webhook/'+esc(n)+'</code>';
+            else if (siteConfig.telegramMode==='polling') h.textContent='Using polling mode (dev).';
+            else h.textContent='';
         }
-
         function openChannelModal(c) {
-            if (typeof c === 'number') c = find(channels, c);
-            document.getElementById('channelModalTitle').textContent = c ? 'Edit Channel' : 'New Channel';
-            document.getElementById('channelId').value = c ? c.id : '';
-            document.getElementById('channelName').value = c ? c.name : '';
-            document.getElementById('channelType').value = c ? c.type : 'telegram';
-            document.getElementById('channelToken').value = c && c.config ? c.config.token || '' : '';
-            document.getElementById('channelUsers').value = c && c.config && c.config.allowed_users ? c.config.allowed_users.join(',') : '';
-            document.getElementById('channelMode').value = c ? c.response_mode : 'immediate';
-            document.getElementById('channelInterval').value = c ? c.response_interval || '' : '';
-            document.getElementById('channelEnabled').checked = c ? c.enabled !== false : true;
-            setTimeout(function() { if (c && c.agent_id) document.getElementById('channelAgent').value = c.agent_id; }, 0);
+            if (typeof c==='number') c=find(channels,c);
+            document.getElementById('channelModalTitle').textContent = c?'Edit Channel':'New Channel';
+            document.getElementById('channelId').value = c?c.id:'';
+            document.getElementById('channelName').value = c?c.name:'';
+            document.getElementById('channelType').value = c?c.type:'telegram';
+            document.getElementById('channelToken').value = c&&c.config?c.config.token||'':'';
+            document.getElementById('channelUsers').value = c&&c.config&&c.config.allowed_users?c.config.allowed_users.join(','):'';
+            document.getElementById('channelMode').value = c?c.response_mode:'immediate';
+            document.getElementById('channelInterval').value = c?c.response_interval||'':'';
+            document.getElementById('channelEnabled').checked = c?c.enabled!==false:true;
+            setTimeout(function(){if(c&&c.agent_id)document.getElementById('channelAgent').value=c.agent_id;},0);
             document.getElementById('channelModal').classList.add('open');
             updateWebhookHint();
         }
-        function editChannel(id) { openChannelModal(id); }
-        document.getElementById('channelName').addEventListener('input', updateWebhookHint);
-
+        function editChannel(id){openChannelModal(id);}
+        document.getElementById('channelName').addEventListener('input',updateWebhookHint);
         async function saveChannel() {
             var id = document.getElementById('channelId').value;
-            var body = {
-                name: document.getElementById('channelName').value,
-                type: document.getElementById('channelType').value,
-                agent_id: parseInt(document.getElementById('channelAgent').value),
-                config: {
-                    token: document.getElementById('channelToken').value,
-                    allowed_users: document.getElementById('channelUsers').value.split(',').map(Number).filter(Boolean),
-                },
-                response_mode: document.getElementById('channelMode').value,
-                response_interval: document.getElementById('channelInterval').value || null,
-                enabled: document.getElementById('channelEnabled').checked,
-            };
-            if (id) await api('PUT', '/api/channels/' + id, body);
-            else await api('POST', '/api/channels', body);
+            var body = {name:document.getElementById('channelName').value, type:document.getElementById('channelType').value,
+                agent_id:parseInt(document.getElementById('channelAgent').value),
+                config:{token:document.getElementById('channelToken').value, allowed_users:document.getElementById('channelUsers').value.split(',').map(Number).filter(Boolean)},
+                response_mode:document.getElementById('channelMode').value, response_interval:document.getElementById('channelInterval').value||null,
+                enabled:document.getElementById('channelEnabled').checked};
+            if (id) await api('PUT','/api/channels/'+id,body); else await api('POST','/api/channels',body);
             closeModal('channelModal'); load();
         }
+        async function deleteChannel(id){if(!confirm('Delete this channel?'))return;await api('DELETE','/api/channels/'+id);load();}
 
-        async function deleteChannel(id) {
-            if (!confirm('Delete this channel?')) return;
-            await api('DELETE', '/api/channels/' + id); load();
-        }
-
-        function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+        function closeModal(id){document.getElementById(id).classList.remove('open');}
         load();
     </script>
 </body>
