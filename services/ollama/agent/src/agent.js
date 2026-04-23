@@ -120,7 +120,7 @@ IMPORTANT rules for tool use:
           result,
         });
         if (onEvent) onEvent('tool_result', { name: call.function.name, result });
-        messages.push({ role: 'tool', content: JSON.stringify(result) });
+        messages.push({ role: 'tool', content: JSON.stringify(result), _toolName: call.function.name });
       }
     }
 

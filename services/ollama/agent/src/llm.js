@@ -132,20 +132,33 @@ function toGeminiContents(messages) {
       systemInstruction = { parts: [{ text: m.content }] };
       continue;
     }
-    const role = m.role === 'assistant' ? 'model' : 'user';
+
+    // Tool result → functionResponse
     if (m.role === 'tool') {
+      let parsed;
+      try { parsed = JSON.parse(m.content); } catch { parsed = m.content; }
       contents.push({
         role: 'function',
-        parts: [{ functionResponse: { name: m._toolName || 'tool', response: { result: m.content } } }],
+        parts: [{ functionResponse: { name: m._toolName || 'tool', response: parsed } }],
       });
       continue;
     }
-    const parts = [{ text: m.content || '' }];
+
+    // Assistant message with raw Gemini parts (preserves thoughtSignature)
+    if (m.role === 'assistant' && m._geminiParts) {
+      contents.push({ role: 'model', parts: m._geminiParts });
+      continue;
+    }
+
+    const role = m.role === 'assistant' ? 'model' : 'user';
+    const parts = [];
+    if (m.content) parts.push({ text: m.content });
     if (m.tool_calls) {
       for (const tc of m.tool_calls) {
         parts.push({ functionCall: { name: tc.function.name, args: tc.function.arguments } });
       }
     }
+    if (parts.length === 0) parts.push({ text: '' });
     contents.push({ role, parts });
   }
   return { contents, systemInstruction };
@@ -162,13 +175,17 @@ function toGeminiTools(tools) {
 function parseGeminiResponse(candidate) {
   let content = '';
   const toolCalls = [];
-  for (const part of (candidate?.content?.parts || [])) {
+  const rawParts = candidate?.content?.parts || [];
+  for (const part of rawParts) {
     if (part.text) content += part.text;
     if (part.functionCall) {
       toolCalls.push({ function: { name: part.functionCall.name, arguments: part.functionCall.args || {} } });
     }
   }
-  return { role: 'assistant', content, tool_calls: toolCalls.length ? toolCalls : undefined };
+  const result = { role: 'assistant', content, tool_calls: toolCalls.length ? toolCalls : undefined };
+  // Preserve raw parts including thoughtSignature for Gemini 3+ models
+  if (toolCalls.length) result._geminiParts = rawParts;
+  return result;
 }
 
 async function chatGoogle(messages, tools, opts) {
@@ -203,12 +220,14 @@ async function chatStreamGoogle(messages, tools, opts, onEvent) {
 
   let fullContent = '';
   const toolCalls = [];
+  const allRawParts = [];
 
   for await (const line of readLines(res)) {
     if (!line.startsWith('data: ')) continue;
     let chunk; try { chunk = JSON.parse(line.slice(6)); } catch { continue; }
     const parts = chunk.candidates?.[0]?.content?.parts || [];
     for (const part of parts) {
+      allRawParts.push(part);
       if (part.text) { fullContent += part.text; onEvent?.('content', part.text); }
       if (part.functionCall) {
         toolCalls.push({ function: { name: part.functionCall.name, arguments: part.functionCall.args || {} } });
@@ -216,7 +235,9 @@ async function chatStreamGoogle(messages, tools, opts, onEvent) {
     }
   }
 
-  return { role: 'assistant', content: fullContent, tool_calls: toolCalls.length ? toolCalls : undefined };
+  const result = { role: 'assistant', content: fullContent, tool_calls: toolCalls.length ? toolCalls : undefined };
+  if (toolCalls.length) result._geminiParts = allRawParts;
+  return result;
 }
 
 // ============================================================
