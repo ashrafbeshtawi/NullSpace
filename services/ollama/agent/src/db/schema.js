@@ -10,11 +10,15 @@ export async function migrate() {
       provider TEXT NOT NULL DEFAULT 'ollama',
       base_url TEXT NOT NULL DEFAULT 'http://127.0.0.1:11434',
       model_id TEXT NOT NULL,
+      api_key TEXT,
       think BOOLEAN NOT NULL DEFAULT false,
       accepts JSONB NOT NULL DEFAULT '["text"]',
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+
+  // Add api_key column if upgrading from old schema
+  try { await adminQuery(`ALTER TABLE models ADD COLUMN IF NOT EXISTS api_key TEXT`); } catch {}
 
   // Agents table — references model
   await adminQuery(`

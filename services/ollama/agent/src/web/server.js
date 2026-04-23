@@ -114,7 +114,7 @@ export function createWebServer(agent) {
     const aid = agentId || sessionData.agentId || 1;
     try {
       const result = await query(
-        `SELECT a.*, m.base_url, m.model_id as ollama_model, m.think, m.accepts, m.provider
+        `SELECT a.*, m.base_url, m.model_id as ollama_model, m.think, m.accepts, m.provider, m.api_key
          FROM agents a LEFT JOIN models m ON a.model_id = m.id WHERE a.id = $1`, [aid]);
       agentConfig = result.rows[0];
       if (agentConfig) {
@@ -123,6 +123,8 @@ export function createWebServer(agent) {
           model_id: agentConfig.ollama_model,
           think: agentConfig.think,
           accepts: agentConfig.accepts || ['text'],
+          provider: agentConfig.provider || 'ollama',
+          apiKey: agentConfig.api_key,
         };
       }
     } catch {}
@@ -142,7 +144,7 @@ export function createWebServer(agent) {
       let fullContent = '';
       let fullThinking = '';
 
-      const reply = await agent.run(message || '', history, {
+      const result = await agent.run(message || '', history, {
         systemPrompt: agentConfig?.system_prompt,
         modelConfig,
         images: images || undefined,
@@ -158,11 +160,15 @@ export function createWebServer(agent) {
         },
       });
 
-      const finalContent = fullContent || reply;
+      const finalContent = fullContent || result.content;
 
       const userLabel = audio ? `[voice] ${message || '(audio)'}` : (message || '(image)');
       history.push({ role: 'user', content: userLabel, ...(images?.length ? { hasImage: true } : {}), ...(audio ? { hasAudio: true } : {}) });
-      history.push({ role: 'assistant', content: finalContent, ...(fullThinking ? { thinking: fullThinking } : {}) });
+      history.push({
+        role: 'assistant', content: finalContent,
+        ...(fullThinking ? { thinking: fullThinking } : {}),
+        ...(result.toolCalls?.length ? { toolCalls: result.toolCalls } : {}),
+      });
       while (history.length > 40) history.shift();
 
       await saveSession(sid, {
@@ -186,26 +192,53 @@ export function createWebServer(agent) {
   });
 
   app.post('/api/models', authMiddleware, async (req, res) => {
-    const { name, provider, base_url, model_id, think, accepts } = req.body;
+    const { name, provider, base_url, model_id, api_key, think, accepts } = req.body;
     if (!name || !model_id) return res.status(400).json({ error: 'name and model_id required' });
     const result = await query(
-      'INSERT INTO models (name, provider, base_url, model_id, think, accepts) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-      [name, provider || 'ollama', base_url || 'http://127.0.0.1:11434', model_id, think || false, JSON.stringify(accepts || ['text'])],
+      'INSERT INTO models (name, provider, base_url, model_id, api_key, think, accepts) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
+      [name, provider || 'ollama', base_url || 'http://127.0.0.1:11434', model_id, api_key || null, think || false, JSON.stringify(accepts || ['text'])],
     );
     res.json(result.rows[0]);
   });
 
   app.put('/api/models/:id', authMiddleware, async (req, res) => {
-    const { name, provider, base_url, model_id, think, accepts } = req.body;
+    const { name, provider, base_url, model_id, api_key, think, accepts } = req.body;
     const result = await query(
       `UPDATE models SET name = COALESCE($1, name), provider = COALESCE($2, provider),
        base_url = COALESCE($3, base_url), model_id = COALESCE($4, model_id),
-       think = COALESCE($5, think), accepts = COALESCE($6, accepts)
-       WHERE id = $7 RETURNING *`,
-      [name, provider, base_url, model_id, think, accepts ? JSON.stringify(accepts) : null, req.params.id],
+       api_key = COALESCE($5, api_key), think = COALESCE($6, think), accepts = COALESCE($7, accepts)
+       WHERE id = $8 RETURNING *`,
+      [name, provider, base_url, model_id, api_key, think, accepts ? JSON.stringify(accepts) : null, req.params.id],
     );
     if (result.rowCount === 0) return res.status(404).json({ error: 'not found' });
     res.json(result.rows[0]);
+  });
+
+  app.post('/api/models/test', authMiddleware, async (req, res) => {
+    const { provider, base_url, model_id, api_key } = req.body;
+    try {
+      if (provider === 'openrouter') {
+        const r = await fetch(`${base_url}/api/v1/chat/completions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${api_key}` },
+          body: JSON.stringify({ model: model_id, messages: [{ role: 'user', content: 'Say "ok" and nothing else.' }], max_tokens: 10 }),
+        });
+        if (!r.ok) { const t = await r.text(); return res.json({ ok: false, error: `${r.status}: ${t.slice(0, 200)}` }); }
+        const data = await r.json();
+        res.json({ ok: true, reply: data.choices?.[0]?.message?.content || '(empty)' });
+      } else {
+        const r = await fetch(`${base_url || 'http://127.0.0.1:11434'}/api/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model: model_id, messages: [{ role: 'user', content: 'Say "ok" and nothing else.' }], stream: false, think: false }),
+        });
+        if (!r.ok) { const t = await r.text(); return res.json({ ok: false, error: `${r.status}: ${t.slice(0, 200)}` }); }
+        const data = await r.json();
+        res.json({ ok: true, reply: data.message?.content || '(empty)' });
+      }
+    } catch (err) {
+      res.json({ ok: false, error: err.message });
+    }
   });
 
   app.delete('/api/models/:id', authMiddleware, async (req, res) => {
@@ -264,6 +297,13 @@ export function createWebServer(agent) {
       'INSERT INTO channels (agent_id, type, name, config, response_mode, response_interval) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
       [agent_id, type, name, JSON.stringify(channelConfig || {}), response_mode || 'immediate', response_interval],
     );
+    // Auto-set webhook for telegram channels in webhook mode
+    if (type === 'telegram' && config.telegram.mode === 'webhook' && config.telegram.webhookUrl && channelConfig?.token) {
+      const whUrl = `${config.telegram.webhookUrl}/webhook/${name}`;
+      fetch(`https://api.telegram.org/bot${channelConfig.token}/setWebhook?url=${encodeURIComponent(whUrl)}`)
+        .then(r => r.json()).then(d => console.log(`[telegram] Webhook set for ${name}:`, d.ok ? 'ok' : d.description))
+        .catch(e => console.error(`[telegram] Failed to set webhook for ${name}:`, e.message));
+    }
     res.json(result.rows[0]);
     if (telegramManager) telegramManager.reload().catch(e => console.error('[telegram] reload failed:', e.message));
   });
@@ -284,6 +324,16 @@ export function createWebServer(agent) {
   });
 
   app.delete('/api/channels/:id', authMiddleware, async (req, res) => {
+    // Get channel info before deleting (to remove webhook)
+    try {
+      const ch = await query('SELECT * FROM channels WHERE id = $1', [req.params.id]);
+      const channel = ch.rows[0];
+      if (channel?.type === 'telegram' && channel.config?.token) {
+        fetch(`https://api.telegram.org/bot${channel.config.token}/deleteWebhook`)
+          .then(r => r.json()).then(d => console.log(`[telegram] Webhook deleted for ${channel.name}:`, d.ok ? 'ok' : d.description))
+          .catch(e => console.error(`[telegram] Failed to delete webhook:`, e.message));
+      }
+    } catch {}
     await query('DELETE FROM channels WHERE id = $1', [req.params.id]);
     res.json({ ok: true });
     if (telegramManager) telegramManager.reload().catch(e => console.error('[telegram] reload failed:', e.message));

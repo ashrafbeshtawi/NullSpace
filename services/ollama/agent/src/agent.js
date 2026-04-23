@@ -43,11 +43,7 @@ IMPORTANT rules for tool use:
 
   /**
    * Run the agent loop.
-   * @param {string} userMessage
-   * @param {Array} history
-   * @param {object} opts
-   *   modelConfig: { base_url, model_id, think, accepts }  (from models table)
-   *   systemPrompt, onEvent, systemNote, images, audio, audioMime
+   * Returns { content, toolCalls } where toolCalls is an array of { name, args, result }
    */
   async run(userMessage, history = [], opts = {}) {
     const systemPrompt = this.#buildSystemPrompt(opts.systemPrompt);
@@ -56,17 +52,14 @@ IMPORTANT rules for tool use:
     const model = mc.model_id || config.ollama.model;
     const think = mc.think ?? config.ollama.think;
     const accepts = mc.accepts || ['text'];
+    const provider = mc.provider || 'ollama';
     const onEvent = opts.onEvent || null;
 
-    // Handle audio: transcribe or forward depending on model capabilities
     let processedMessage = userMessage;
     if (opts.audio) {
       if (accepts.includes('audio')) {
-        // Model accepts audio natively — this is a placeholder for when Ollama supports it
         processedMessage = processedMessage || 'What is said in this audio?';
-        // TODO: pass audio to Ollama when API supports it
       } else {
-        // Transcribe with whisper
         if (onEvent) onEvent('status', 'Transcribing audio...');
         const transcript = await transcribeAudio(opts.audio, opts.audioMime);
         if (onEvent) onEvent('transcript', transcript);
@@ -96,7 +89,9 @@ IMPORTANT rules for tool use:
     ];
 
     const tools = this.#registry.getDefinitions();
-    const llmOpts = { baseUrl, model, think };
+    const apiKey = mc.apiKey || null;
+    const llmOpts = { baseUrl, model, think, provider, apiKey };
+    const collectedToolCalls = [];
 
     for (let i = 0; i < MAX_ITERATIONS; i++) {
       let response;
@@ -108,7 +103,7 @@ IMPORTANT rules for tool use:
       }
 
       if (!response.tool_calls || response.tool_calls.length === 0) {
-        return response.content || '(no response)';
+        return { content: response.content || '(no response)', toolCalls: collectedToolCalls };
       }
 
       messages.push(response);
@@ -119,11 +114,16 @@ IMPORTANT rules for tool use:
           call.function.name,
           call.function.arguments,
         );
+        collectedToolCalls.push({
+          name: call.function.name,
+          args: call.function.arguments,
+          result,
+        });
         if (onEvent) onEvent('tool_result', { name: call.function.name, result });
         messages.push({ role: 'tool', content: JSON.stringify(result) });
       }
     }
 
-    return '(reached maximum tool call iterations)';
+    return { content: '(reached maximum tool call iterations)', toolCalls: collectedToolCalls };
   }
 }

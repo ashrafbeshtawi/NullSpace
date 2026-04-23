@@ -10,8 +10,9 @@ const MAX_MSG_LEN = 4096;
 export class TelegramManager {
   #agent;
   #expressApp;
-  #bots = new Map();       // channelId -> bot instance
+  #bots = new Map();
   #timers = new Map();
+  #chatSessions = new Map(); // "channelName-chatId" -> current session ID
 
   constructor(agent) {
     this.#agent = agent;
@@ -36,7 +37,7 @@ export class TelegramManager {
     try {
       const result = await query(`
         SELECT c.*, a.name as agent_name, a.system_prompt,
-               m.base_url, m.model_id, m.think, m.accepts, m.provider
+               m.base_url, m.model_id, m.think, m.accepts, m.provider, m.api_key
         FROM channels c
         JOIN agents a ON c.agent_id = a.id
         LEFT JOIN models m ON a.model_id = m.id
@@ -100,12 +101,20 @@ export class TelegramManager {
       }
 
       if (msg.text === '/start') {
-        return bot.sendMessage(msg.chat.id, `Hi! I'm DogeClaw (${channel.agent_name}). Send me a message.`);
+        return bot.sendMessage(msg.chat.id, `Hi! I'm DogeClaw (${channel.agent_name}). Commands:\n/new - Start a new chat\n/reset - Clear current chat`);
       }
       if (msg.text === '/reset') {
         const sid = `tg-${channel.name}-${msg.chat.id}`;
         await saveSession(sid, { messages: [], agentId: channel.agent_id, agentName: channel.agent_name, channel: channel.name, source: 'telegram' });
         return bot.sendMessage(msg.chat.id, 'Conversation reset.');
+      }
+      if (msg.text === '/new') {
+        // Create a new session with a unique suffix
+        const newSid = `tg-${channel.name}-${msg.chat.id}-${Date.now()}`;
+        this.#chatSessions = this.#chatSessions || new Map();
+        this.#chatSessions.set(`${channel.name}-${msg.chat.id}`, newSid);
+        await saveSession(newSid, { messages: [], agentId: channel.agent_id, agentName: channel.agent_name, channel: channel.name, source: 'telegram' });
+        return bot.sendMessage(msg.chat.id, 'New chat started. Previous chat is still visible in the web UI.');
       }
 
       // Handle media
@@ -186,7 +195,8 @@ export class TelegramManager {
   async #handleMessage(bot, chatId, text, images, channel, audioB64, audioMime) {
     bot.sendChatAction(chatId, 'typing').catch(() => {});
 
-    const sessionId = `tg-${channel.name}-${chatId}`;
+    const sessionKey = `${channel.name}-${chatId}`;
+    const sessionId = this.#chatSessions.get(sessionKey) || `tg-${channel.name}-${chatId}`;
     const sessionData = await loadSession(sessionId);
     const history = sessionData.messages || [];
 
@@ -195,10 +205,12 @@ export class TelegramManager {
       model_id: channel.model_id,
       think: channel.think,
       accepts: channel.accepts || ['text'],
+      provider: channel.provider || 'ollama',
+      apiKey: channel.api_key,
     };
 
     try {
-      const reply = await this.#agent.run(text, history, {
+      const result = await this.#agent.run(text, history, {
         systemPrompt: channel?.system_prompt,
         modelConfig,
         images: images || undefined,
@@ -206,7 +218,10 @@ export class TelegramManager {
         audioMime: audioMime || undefined,
       });
       history.push({ role: 'user', content: text });
-      history.push({ role: 'assistant', content: reply });
+      history.push({
+        role: 'assistant', content: result.content,
+        ...(result.toolCalls?.length ? { toolCalls: result.toolCalls } : {}),
+      });
       while (history.length > 40) history.shift();
 
       await saveSession(sessionId, {
@@ -217,7 +232,7 @@ export class TelegramManager {
         source: 'telegram',
       });
 
-      await sendLong(bot, chatId, reply);
+      await sendLong(bot, chatId, result.content);
     } catch (err) {
       console.error(`[telegram] Error handling message: ${err.message}`);
       await bot.sendMessage(chatId, `Error: ${err.message}`).catch(() => {});
@@ -251,13 +266,12 @@ export class TelegramManager {
     for (const [chatId, messages] of byChat) {
       const combined = messages.map(m => m.text).join('\n---\n');
       try {
-        const reply = await this.#agent.run(combined, [], {
+        const result = await this.#agent.run(combined, [], {
           systemPrompt: channel.system_prompt,
-          model: channel.model,
-          think: channel.think,
+          modelConfig: { base_url: channel.base_url, model_id: channel.model_id, think: channel.think, accepts: channel.accepts || ['text'], provider: channel.provider || 'ollama', apiKey: channel.api_key },
           systemNote: `Processing ${messages.length} queued message(s)`,
         });
-        await sendLong(bot, chatId, reply);
+        await sendLong(bot, chatId, result.content);
       } catch (err) {
         await bot.sendMessage(chatId, `Error: ${err.message}`).catch(() => {});
       }

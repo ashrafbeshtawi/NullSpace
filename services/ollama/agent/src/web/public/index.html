@@ -157,7 +157,7 @@
             el.innerHTML = '';
             (data.messages || []).forEach(function(msg) {
                 if (msg.role === 'user') addMessage('user', msg.content);
-                else if (msg.role === 'assistant') addAssistantMessage(msg.content, msg.thinking);
+                else if (msg.role === 'assistant') addAssistantMessage(msg.content, msg.thinking, msg.toolCalls);
             });
             loadSessions();
         }
@@ -183,7 +183,7 @@
             el.scrollTop = el.scrollHeight;
         }
 
-        function addAssistantMessage(content, thinking) {
+        function addAssistantMessage(content, thinking, toolCalls) {
             hideEmpty();
             var el = document.getElementById('messages');
             var div = document.createElement('div');
@@ -193,6 +193,18 @@
                 tb.className = 'thinking-block';
                 tb.innerHTML = '<div class="thinking-toggle" onclick="this.nextElementSibling.classList.toggle(\'open\')">&#9656; Thinking</div><div class="thinking-content">' + escapeHtml(thinking) + '</div>';
                 div.appendChild(tb);
+            }
+            if (toolCalls && toolCalls.length) {
+                var tcBlock = document.createElement('div');
+                tcBlock.className = 'thinking-block';
+                var summary = toolCalls.map(function(tc) { return tc.name; }).join(', ');
+                var details = toolCalls.map(function(tc) {
+                    var args = typeof tc.args === 'string' ? tc.args : JSON.stringify(tc.args, null, 2);
+                    var res = typeof tc.result === 'string' ? tc.result : JSON.stringify(tc.result, null, 2);
+                    return '> ' + tc.name + '(' + args.slice(0, 200) + ')\n' + res.slice(0, 500);
+                }).join('\n\n');
+                tcBlock.innerHTML = '<div class="thinking-toggle" onclick="this.nextElementSibling.classList.toggle(\'open\')">&#128295; Tools: ' + escapeHtml(summary) + '</div><div class="thinking-content">' + escapeHtml(details) + '</div>';
+                div.appendChild(tcBlock);
             }
             var text = document.createElement('div');
             text.textContent = content;
