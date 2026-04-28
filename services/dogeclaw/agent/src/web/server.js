@@ -201,7 +201,7 @@ export function createWebServer(agent) {
     if (!name || !model_id) return res.status(400).json({ error: 'name and model_id required' });
     const result = await query(
       'INSERT INTO models (name, provider, base_url, model_id, api_key, think, accepts) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
-      [name, provider || 'ollama', base_url || 'http://127.0.0.1:11434', model_id, api_key || null, think || false, JSON.stringify(accepts || ['text'])],
+      [name, provider || 'ollama', base_url || 'http://ollama:11434', model_id, api_key || null, think || false, JSON.stringify(accepts || ['text'])],
     );
     res.json(result.rows[0]);
     reloadTelegram();
@@ -245,7 +245,7 @@ export function createWebServer(agent) {
         const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '(empty)';
         res.json({ ok: true, reply: text });
       } else {
-        const r = await fetch(`${base_url || 'http://127.0.0.1:11434'}/api/chat`, {
+        const r = await fetch(`${base_url || 'http://ollama:11434'}/api/chat`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ model: model_id, messages: [{ role: 'user', content: 'Say "ok" and nothing else.' }], stream: false, think: false }),

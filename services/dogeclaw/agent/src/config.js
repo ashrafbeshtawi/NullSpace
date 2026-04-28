@@ -2,7 +2,7 @@ const env = process.env;
 
 const config = {
   ollama: {
-    url: env.DOGECLAW_OLLAMA_URL || 'http://127.0.0.1:11434',
+    url: env.DOGECLAW_OLLAMA_URL || 'http://ollama:11434',
     model: env.DOGECLAW_MODEL || 'gemma4:e2b',
     think: env.DOGECLAW_THINK === 'true',
   },

@@ -8,7 +8,7 @@ export async function migrate() {
       id SERIAL PRIMARY KEY,
       name TEXT NOT NULL UNIQUE,
       provider TEXT NOT NULL DEFAULT 'ollama',
-      base_url TEXT NOT NULL DEFAULT 'http://127.0.0.1:11434',
+      base_url TEXT NOT NULL DEFAULT 'http://ollama:11434',
       model_id TEXT NOT NULL,
       api_key TEXT,
       think BOOLEAN NOT NULL DEFAULT false,

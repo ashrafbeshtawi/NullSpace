@@ -130,7 +130,7 @@
                 <option value="google">Google Gemini</option>
             </select>
             <label>Base URL</label>
-            <input type="text" id="modelBaseUrl" placeholder="http://127.0.0.1:11434">
+            <input type="text" id="modelBaseUrl" placeholder="http://ollama:11434">
             <label>Model ID</label>
             <input type="text" id="modelModelId" placeholder="gemma4:e2b">
             <div id="apiKeyRow">
@@ -296,8 +296,8 @@
                 keyRow.style.display = 'block';
                 modelInput.placeholder = 'gemini-2.5-flash';
             } else {
-                urlInput.value = 'http://127.0.0.1:11434';
-                urlInput.placeholder = 'http://127.0.0.1:11434';
+                urlInput.value = 'http://ollama:11434';
+                urlInput.placeholder = 'http://ollama:11434';
                 keyRow.style.display = 'none';
                 modelInput.placeholder = 'gemma4:e2b';
             }
@@ -309,7 +309,7 @@
             document.getElementById('modelFormId').value = m?m.id:'';
             document.getElementById('modelName').value = m?m.name:'';
             document.getElementById('modelProvider').value = m?m.provider:'ollama';
-            document.getElementById('modelBaseUrl').value = m?m.base_url:'http://127.0.0.1:11434';
+            document.getElementById('modelBaseUrl').value = m?m.base_url:'http://ollama:11434';
             document.getElementById('modelModelId').value = m?m.model_id:'';
             document.getElementById('modelApiKey').value = m?m.api_key||'':'';
             document.getElementById('modelThink').checked = m?m.think:false;
