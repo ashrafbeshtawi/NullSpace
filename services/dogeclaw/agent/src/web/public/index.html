@@ -10,9 +10,10 @@
 
         /* Sidebar */
         .sidebar { width: 280px; background: #0e0e16; border-right: 1px solid rgba(220,38,38,0.1); display: flex; flex-direction: column; }
-        .sidebar-header { padding: 1.25rem; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; align-items: center; gap: 0.75rem; }
-        .sidebar-header img { width: 36px; height: auto; }
-        .sidebar-header h2 { font-size: 1rem; font-weight: 800; letter-spacing: -0.02em; }
+        .sidebar-header { padding: 1.5rem 1.25rem 1rem; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; flex-direction: column; align-items: center; gap: 0.5rem; text-align: center; }
+        .sidebar-header img { width: 110px; height: auto; filter: drop-shadow(0 4px 16px rgba(220,38,38,0.35)); transition: transform 0.2s; }
+        .sidebar-header img:hover { transform: scale(1.05); }
+        .sidebar-header h2 { font-size: 1.1rem; font-weight: 800; letter-spacing: -0.02em; background: linear-gradient(135deg, #fff 0%, #fca5a5 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
         .sidebar-controls { padding: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.05); }
         .sidebar-controls select { width: 100%; padding: 0.4rem 0.6rem; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; background: rgba(255,255,255,0.03); color: #e2e8f0; font-size: 0.8rem; }
         .new-chat-btn { width: 100%; padding: 0.5rem; border: 1px dashed rgba(220,38,38,0.3); border-radius: 8px; background: transparent; color: #dc2626; font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: all 0.2s; }
@@ -68,9 +69,13 @@
         @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
 
         /* Empty state */
-        .empty-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 0.3; }
-        .empty-state img { width: 80px; margin-bottom: 1rem; }
-        .empty-state p { font-size: 0.9rem; color: #64748b; }
+        .empty-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 0.6; }
+        .empty-state img { width: 220px; margin-bottom: 1.5rem; filter: drop-shadow(0 8px 24px rgba(220,38,38,0.25)); animation: breathe 4s ease-in-out infinite; }
+        .empty-state p { font-size: 0.95rem; color: #64748b; }
+        @keyframes breathe {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.03); }
+        }
 
         @media (max-width: 700px) { .sidebar { display: none; } }
     </style>
