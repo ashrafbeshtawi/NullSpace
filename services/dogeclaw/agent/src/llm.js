@@ -20,7 +20,7 @@ export async function chatStream(messages, tools = [], opts = {}, onEvent) {
 
 async function chatOllama(messages, tools, opts) {
   const baseUrl = opts.baseUrl || config.ollama.url;
-  const body = { model: opts.model || config.ollama.model, messages, stream: false, think: opts.think ?? config.ollama.think };
+  const body = { model: opts.model, messages, stream: false, think: opts.think ?? false };
   if (tools.length > 0) body.tools = tools;
 
   const res = await fetch(`${baseUrl}/api/chat`, {
@@ -32,7 +32,7 @@ async function chatOllama(messages, tools, opts) {
 
 async function chatStreamOllama(messages, tools, opts, onEvent) {
   const baseUrl = opts.baseUrl || config.ollama.url;
-  const body = { model: opts.model || config.ollama.model, messages, stream: true, think: opts.think ?? config.ollama.think };
+  const body = { model: opts.model, messages, stream: true, think: opts.think ?? false };
   if (tools.length > 0) body.tools = tools;
 
   const res = await fetch(`${baseUrl}/api/chat`, {

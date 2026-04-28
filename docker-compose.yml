@@ -39,6 +39,26 @@ services:
     networks:
       - internal
 
+  # --- DB Migrations (one-shot) ---
+  migrations:
+    image: flyway/flyway:11-alpine
+    container_name: migrations
+    command:
+      - -url=jdbc:postgresql://postgres:5432/${POSTGRES_DB:-nullspace}
+      - -user=${POSTGRES_USER:-nullspace}
+      - -password=${POSTGRES_PASSWORD:-changeme}
+      - -connectRetries=10
+      - -baselineOnMigrate=true
+      - migrate
+    volumes:
+      - ./services/migrations/sql:/flyway/sql:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - internal
+    restart: "no"
+
   # --- Utility Services ---
 
   portainer:
@@ -143,6 +163,9 @@ services:
       - DOGECLAW_WEBHOOK_URL=${DOGECLAW_WEBHOOK_URL:-}
     volumes:
       - agent_workspace:/root/agent-workspace
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
     labels:
       - "traefik.enable=true"
       - "traefik.http.services.dogeclaw.loadbalancer.server.port=3000"

@@ -115,15 +115,45 @@
         var sessionId = null, sending = false, currentAgentId = null, pendingFile = null, mediaRecorder = null, audioChunks = [], agents = [];
 
         async function loadAgents() {
-            var res = await fetch('/api/agents');
-            if (res.status === 401) return window.location.href = '/login';
-            var data = await res.json();
-            agents = data.agents;
+            var [agentsRes, modelsRes] = await Promise.all([fetch('/api/agents'), fetch('/api/models')]);
+            if (agentsRes.status === 401 || modelsRes.status === 401) return window.location.href = '/login';
+            var agentData = await agentsRes.json();
+            var modelData = await modelsRes.json();
+            agents = agentData.agents;
+            var hasModels = modelData.models?.length > 0;
+            var hasUsableAgent = agents.some(function(a) { return a.model_id; });
+
             var sel = document.getElementById('agentSelect');
-            sel.innerHTML = agents.map(function(a) {
+            var sendBtn = document.getElementById('sendBtn');
+            var input = document.getElementById('input');
+
+            if (!hasModels || !hasUsableAgent) {
+                sel.innerHTML = '<option>(no agents)</option>';
+                sel.disabled = true;
+                sendBtn.disabled = true;
+                input.disabled = true;
+                input.placeholder = !hasModels ? 'Add a model in admin first...' : 'Assign a model to an agent in admin...';
+                showSetupEmptyState(hasModels);
+                return;
+            }
+
+            sel.disabled = false;
+            sendBtn.disabled = false;
+            input.disabled = false;
+            input.placeholder = 'Message DogeClaw...';
+
+            sel.innerHTML = agents.filter(function(a) { return a.model_id; }).map(function(a) {
                 return '<option value="' + a.id + '"' + (a.id === currentAgentId ? ' selected' : '') + '>' + a.name + '</option>';
             }).join('');
-            if (!currentAgentId && agents.length) currentAgentId = agents[0].id;
+            if (!currentAgentId && agents.length) currentAgentId = agents.find(function(a) { return a.model_id; })?.id;
+        }
+
+        function showSetupEmptyState(hasModels) {
+            var el = document.getElementById('messages');
+            var msg = !hasModels
+                ? 'No models configured yet. Add one in the admin to start chatting.'
+                : 'You have models but no agent uses them. Assign a model to an agent in the admin.';
+            el.innerHTML = '<div class="empty-state"><img src="/static/logo.png" alt=""><p style="margin-bottom:1rem">' + msg + '</p><button class="new-chat-btn" style="max-width:200px;border-style:solid" onclick="window.location=\'/admin\'">Open Admin</button></div>';
         }
 
         function onAgentChange() { currentAgentId = parseInt(document.getElementById('agentSelect').value); }

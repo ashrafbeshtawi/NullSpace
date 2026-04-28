@@ -1,6 +1,5 @@
 import { mkdir } from 'node:fs/promises';
 import config from './config.js';
-import { migrate } from './db/schema.js';
 import { shutdown as shutdownPools } from './db/pool.js';
 import { ToolRegistry } from './tools/index.js';
 import { Agent } from './agent.js';
@@ -27,10 +26,7 @@ async function main() {
   await mkdir(config.paths.queues, { recursive: true });
   await mkdir(config.paths.logs, { recursive: true });
 
-  // Run DB migrations (uses admin pool)
-  if (config.database.adminUrl) {
-    await migrate();
-  }
+  // DB migrations are run by the Flyway service before this container starts.
 
   // Tool registry
   const registry = new ToolRegistry();
@@ -69,7 +65,6 @@ async function main() {
   // Start HTTP server
   app.listen(config.web.port, '0.0.0.0', () => {
     console.log(`[dogeclaw] Web UI at http://0.0.0.0:${config.web.port}`);
-    console.log(`[dogeclaw] Model: ${config.ollama.model} (think: ${config.ollama.think})`);
     console.log(`[dogeclaw] Tools: ${registry.list().join(', ')}`);
     console.log(`[dogeclaw] Ready`);
   });

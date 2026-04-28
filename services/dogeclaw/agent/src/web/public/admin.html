@@ -264,7 +264,7 @@
                 return '<tr><td><strong>'+esc(a.name)+'</strong></td><td>'+(esc(a.model_name)||'<span style="color:#475569">none</span>')+'</td>'
                     +'<td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(a.system_prompt)+'</td>'
                     +'<td class="actions"><button onclick="editAgent('+a.id+')">Edit</button>'
-                    +(a.id!==1?'<button class="danger" onclick="deleteAgent('+a.id+')">Delete</button>':'')+'</td></tr>';
+                    +'<button class="danger" onclick="deleteAgent('+a.id+')">Delete</button></td></tr>';
             }).join('');
             document.getElementById('channelAgent').innerHTML = agents.map(function(a){return '<option value="'+a.id+'">'+esc(a.name)+'</option>';}).join('');
         }

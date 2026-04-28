@@ -3,8 +3,6 @@ const env = process.env;
 const config = {
   ollama: {
     url: env.DOGECLAW_OLLAMA_URL || 'http://ollama:11434',
-    model: env.DOGECLAW_MODEL || 'gemma4:e2b',
-    think: env.DOGECLAW_THINK === 'true',
   },
   web: {
     port: parseInt(env.DOGECLAW_PORT || '3000', 10),

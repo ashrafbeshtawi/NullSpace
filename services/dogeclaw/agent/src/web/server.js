@@ -111,7 +111,8 @@ export function createWebServer(agent) {
     // Load agent + model config
     let agentConfig = null;
     let modelConfig = null;
-    const aid = agentId || sessionData.agentId || 1;
+    const aid = agentId || sessionData.agentId;
+    if (!aid) return res.status(400).json({ error: 'No agent selected. Create an agent in the admin UI first.' });
     try {
       const result = await query(
         `SELECT a.*, m.base_url, m.model_id as ollama_model, m.think, m.accepts, m.provider, m.api_key
@@ -128,6 +129,9 @@ export function createWebServer(agent) {
         };
       }
     } catch {}
+
+    if (!agentConfig) return res.status(404).json({ error: 'Agent not found.' });
+    if (!modelConfig?.model_id) return res.status(400).json({ error: 'This agent has no model assigned. Configure it in the admin UI.' });
 
     // SSE headers
     res.writeHead(200, {
@@ -297,7 +301,6 @@ export function createWebServer(agent) {
   });
 
   app.delete('/api/agents/:id', authMiddleware, async (req, res) => {
-    if (req.params.id === '1') return res.status(400).json({ error: 'cannot delete default agent' });
     await query('DELETE FROM agents WHERE id = $1', [req.params.id]);
     res.json({ ok: true });
     reloadTelegram();

@@ -63,9 +63,12 @@ IMPORTANT rules for tool use:
     const agentId = opts.agentId || null;
     const systemPrompt = await this.#buildSystemPrompt(opts.systemPrompt, agentId);
     const mc = opts.modelConfig || {};
+    if (!mc.model_id) {
+      throw new Error('No model configured. Add a model in the admin UI and assign it to this agent.');
+    }
     const baseUrl = mc.base_url || config.ollama.url;
-    const model = mc.model_id || config.ollama.model;
-    const think = mc.think ?? config.ollama.think;
+    const model = mc.model_id;
+    const think = mc.think ?? false;
     const accepts = mc.accepts || ['text'];
     const provider = mc.provider || 'ollama';
     const onEvent = opts.onEvent || null;
