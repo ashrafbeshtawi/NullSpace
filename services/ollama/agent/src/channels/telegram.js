@@ -211,6 +211,7 @@ export class TelegramManager {
 
     try {
       const result = await this.#agent.run(text, history, {
+        agentId: channel.agent_id,
         systemPrompt: channel?.system_prompt,
         modelConfig,
         images: images || undefined,
@@ -267,6 +268,7 @@ export class TelegramManager {
       const combined = messages.map(m => m.text).join('\n---\n');
       try {
         const result = await this.#agent.run(combined, [], {
+          agentId: channel.agent_id,
           systemPrompt: channel.system_prompt,
           modelConfig: { base_url: channel.base_url, model_id: channel.model_id, think: channel.think, accepts: channel.accepts || ['text'], provider: channel.provider || 'ollama', apiKey: channel.api_key },
           systemNote: `Processing ${messages.length} queued message(s)`,

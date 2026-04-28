@@ -89,6 +89,19 @@
             </table>
         </div>
 
+        <!-- Skills -->
+        <div class="section">
+            <div class="section-header">
+                <h2>Skills</h2>
+                <button onclick="openSkillModal()">+ New Skill</button>
+            </div>
+            <table>
+                <thead><tr><th>Name</th><th>Description</th><th>Access</th><th></th></tr></thead>
+                <tbody id="skillsTable"></tbody>
+            </table>
+            <div class="hint">Skills with no assigned agents are public (available to all). Assign agents to restrict access.</div>
+        </div>
+
         <!-- Channels -->
         <div class="section">
             <div class="section-header">
@@ -153,9 +166,32 @@
             <select id="agentModel"></select>
             <label>System Prompt</label>
             <textarea id="agentPrompt" placeholder="You are a helpful assistant..."></textarea>
+            <label>Skills</label>
+            <div id="agentSkillsCheckboxes" style="max-height:160px;overflow-y:auto;border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:0.5rem;background:rgba(255,255,255,0.02)"></div>
+            <div class="field-hint">Select skills to assign. Unselected public skills are still available.</div>
             <div class="btn-row">
                 <button class="btn-cancel" onclick="closeModal('agentModal')">Cancel</button>
                 <button class="btn-save" onclick="saveAgent()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Skill Modal -->
+    <div class="modal-overlay" id="skillModal">
+        <div class="modal">
+            <h3 id="skillModalTitle">New Skill</h3>
+            <input type="hidden" id="skillFormId">
+            <label>Name</label>
+            <input type="text" id="skillName" placeholder="python_dev">
+            <label>Description</label>
+            <input type="text" id="skillDescription" placeholder="Best practices for Python development">
+            <label>Content</label>
+            <textarea id="skillContent" placeholder="Detailed instructions, code patterns, references..." style="min-height:160px"></textarea>
+            <label>Assigned Agents (empty = available to all)</label>
+            <div id="skillAgentsCheckboxes" style="max-height:120px;overflow-y:auto;border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:0.5rem;background:rgba(255,255,255,0.02)"></div>
+            <div class="btn-row">
+                <button class="btn-cancel" onclick="closeModal('skillModal')">Cancel</button>
+                <button class="btn-save" onclick="saveSkill()">Save</button>
             </div>
         </div>
     </div>
@@ -190,7 +226,7 @@
     </div>
 
     <script>
-        var models = [], agents = [], channels = [], siteConfig = {};
+        var models = [], agents = [], channels = [], skills = [], siteConfig = {};
 
         async function api(method, path, body) {
             var opts = { method: method, headers: { 'Content-Type': 'application/json' } };
@@ -201,9 +237,9 @@
         }
 
         async function load() {
-            var r = await Promise.all([api('GET','/api/models'),api('GET','/api/agents'),api('GET','/api/channels'),api('GET','/api/config')]);
-            models = r[0].models; agents = r[1].agents; channels = r[2].channels; siteConfig = r[3];
-            renderModels(); renderAgents(); renderChannels();
+            var r = await Promise.all([api('GET','/api/models'),api('GET','/api/agents'),api('GET','/api/channels'),api('GET','/api/skills'),api('GET','/api/config')]);
+            models = r[0].models; agents = r[1].agents; channels = r[2].channels; skills = r[3].skills; siteConfig = r[4];
+            renderModels(); renderAgents(); renderSkills(); renderChannels();
             var mh = document.getElementById('telegramModeHint');
             mh.innerHTML = siteConfig.telegramMode === 'webhook' && siteConfig.webhookUrl
                 ? 'Telegram mode: <strong>webhook</strong> &mdash; <code>' + esc(siteConfig.webhookUrl) + '</code>'
@@ -332,6 +368,54 @@
         async function deleteModel(id){if(!confirm('Delete this model?'))return;await api('DELETE','/api/models/'+id);load();}
 
         // Agent CRUD
+        function renderSkills() {
+            document.getElementById('skillsTable').innerHTML = skills.map(function(s) {
+                var ids = s.agent_ids || [];
+                var access = ids.length === 0 ? '<span class="badge badge-on">public</span>'
+                    : ids.map(function(id) { var a = find(agents, id); return '<span class="badge badge-tag">' + esc(a ? a.name : '?') + '</span>'; }).join(' ');
+                return '<tr><td><strong>' + esc(s.name) + '</strong></td>'
+                    + '<td>' + esc(s.description) + '</td>'
+                    + '<td>' + access + '</td>'
+                    + '<td class="actions"><button onclick="editSkill(' + s.id + ')">Edit</button>'
+                    + '<button class="danger" onclick="deleteSkill(' + s.id + ')">Delete</button></td></tr>';
+            }).join('');
+        }
+
+        function openSkillModal(s) {
+            if (typeof s==='number') s=find(skills,s);
+            document.getElementById('skillModalTitle').textContent = s?'Edit Skill':'New Skill';
+            document.getElementById('skillFormId').value = s?s.id:'';
+            document.getElementById('skillName').value = s?s.name:'';
+            document.getElementById('skillDescription').value = s?s.description:'';
+            document.getElementById('skillContent').value = s?s.content:'';
+            var assigned = s ? (s.agent_ids || []) : [];
+            document.getElementById('skillAgentsCheckboxes').innerHTML = agents.map(function(a) {
+                var checked = assigned.includes(a.id) ? 'checked' : '';
+                return '<label style="display:block;font-size:0.8rem;margin-bottom:0.2rem;color:#cbd5e1"><input type="checkbox" value="' + a.id + '" ' + checked + ' style="margin-right:0.4rem;accent-color:#dc2626"> ' + esc(a.name) + '</label>';
+            }).join('');
+            document.getElementById('skillModal').classList.add('open');
+        }
+        function editSkill(id){openSkillModal(id);}
+
+        async function saveSkill() {
+            var id = document.getElementById('skillFormId').value;
+            var checked = Array.from(document.getElementById('skillAgentsCheckboxes').querySelectorAll('input:checked')).map(function(i){return parseInt(i.value);});
+            var body = {
+                name: document.getElementById('skillName').value,
+                description: document.getElementById('skillDescription').value,
+                content: document.getElementById('skillContent').value,
+                agent_ids: checked,
+            };
+            if (id) await api('PUT','/api/skills/'+id,body);
+            else await api('POST','/api/skills',body);
+            closeModal('skillModal'); load();
+        }
+
+        async function deleteSkill(id) {
+            if (!confirm('Delete this skill?')) return;
+            await api('DELETE','/api/skills/'+id); load();
+        }
+
         function openAgentModal(a) {
             if (typeof a==='number') a=find(agents,a);
             document.getElementById('agentModalTitle').textContent = a?'Edit Agent':'New Agent';
@@ -340,6 +424,13 @@
             document.getElementById('agentPrompt').value = a?a.system_prompt:'';
             document.getElementById('agentModel').innerHTML = '<option value="">(default)</option>'+models.map(function(m){return '<option value="'+m.id+'">'+esc(m.name)+' ('+esc(m.model_id)+')</option>';}).join('');
             document.getElementById('agentModel').value = a&&a.model_id?a.model_id:'';
+            var assignedSkills = a ? (a.skill_ids || []) : [];
+            document.getElementById('agentSkillsCheckboxes').innerHTML = skills.length === 0
+                ? '<span style="color:#64748b;font-size:0.8rem">No skills yet. Create skills first.</span>'
+                : skills.map(function(s) {
+                    var checked = assignedSkills.includes(s.id) ? 'checked' : '';
+                    return '<label style="display:block;font-size:0.8rem;margin-bottom:0.2rem;color:#cbd5e1"><input type="checkbox" value="' + s.id + '" ' + checked + ' style="margin-right:0.4rem;accent-color:#dc2626"> ' + esc(s.name) + ' <span style="color:#64748b">- ' + esc(s.description) + '</span></label>';
+                }).join('');
             document.getElementById('agentModal').classList.add('open');
         }
         function editAgent(id){openAgentModal(id);}
@@ -347,7 +438,15 @@
             var id = document.getElementById('agentId').value;
             var mid = document.getElementById('agentModel').value;
             var body = {name:document.getElementById('agentName').value, system_prompt:document.getElementById('agentPrompt').value, model_id:mid?parseInt(mid):null};
-            if (id) await api('PUT','/api/agents/'+id,body); else await api('POST','/api/agents',body);
+            var saved;
+            if (id) saved = await api('PUT','/api/agents/'+id,body);
+            else saved = await api('POST','/api/agents',body);
+            // Save skill assignments
+            var checkedSkills = Array.from(document.getElementById('agentSkillsCheckboxes').querySelectorAll('input:checked')).map(function(i){return parseInt(i.value);});
+            var agentId = saved?.id || id;
+            if (agentId) {
+                await api('PUT', '/api/agents/' + agentId + '/skills', { skill_ids: checkedSkills });
+            }
             closeModal('agentModal'); load();
         }
         async function deleteAgent(id){if(!confirm('Delete this agent?'))return;await api('DELETE','/api/agents/'+id);load();}

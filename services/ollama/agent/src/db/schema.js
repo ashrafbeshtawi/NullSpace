@@ -39,6 +39,26 @@ export async function migrate() {
   try { await adminQuery(`ALTER TABLE agents DROP COLUMN IF EXISTS model`); } catch {}
   try { await adminQuery(`ALTER TABLE agents DROP COLUMN IF EXISTS think`); } catch {}
 
+  // Skills table
+  await adminQuery(`
+    CREATE TABLE IF NOT EXISTS skills (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL UNIQUE,
+      description TEXT NOT NULL DEFAULT '',
+      content TEXT NOT NULL DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
+  // Agent <-> Skills join (empty assignment = skill available to all agents)
+  await adminQuery(`
+    CREATE TABLE IF NOT EXISTS agent_skills (
+      agent_id INTEGER NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+      skill_id INTEGER NOT NULL REFERENCES skills(id) ON DELETE CASCADE,
+      PRIMARY KEY (agent_id, skill_id)
+    )
+  `);
+
   // Channels table
   await adminQuery(`
     CREATE TABLE IF NOT EXISTS channels (
@@ -58,7 +78,7 @@ export async function migrate() {
   try {
     const { rowCount } = await adminQuery(`SELECT 1 FROM pg_roles WHERE rolname = 'dogeclaw'`);
     if (rowCount > 0) {
-      await adminQuery(`GRANT SELECT ON models, agents, channels TO dogeclaw`);
+      await adminQuery(`GRANT SELECT ON models, agents, channels, skills, agent_skills TO dogeclaw`);
       await adminQuery(`GRANT CREATE ON SCHEMA public TO dogeclaw`);
       await adminQuery(`GRANT USAGE ON SCHEMA public TO dogeclaw`);
       console.log('[db] Granted dogeclaw read-only on config tables');

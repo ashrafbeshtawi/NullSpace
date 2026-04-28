@@ -35,11 +35,14 @@ export class CronRunner {
           const result = await this.#agent.run(
             job.prompt,
             [],
-            `This task was triggered by cron job: ${job.description} (id: ${job.id})`,
+            {
+              agentId: job.agentId || 1,
+              systemNote: `This task was triggered by cron job: ${job.description} (id: ${job.id})`,
+            },
           );
 
           if (job.notifyChat && this.#sendTelegram) {
-            await this.#sendTelegram(job.notifyChat, result);
+            await this.#sendTelegram(job.notifyChat, result.content);
           }
         } catch (err) {
           console.error(`[cron] Job ${job.id} failed:`, err.message);

@@ -145,6 +145,7 @@ export function createWebServer(agent) {
       let fullThinking = '';
 
       const result = await agent.run(message || '', history, {
+        agentId: aid,
         systemPrompt: agentConfig?.system_prompt,
         modelConfig,
         images: images || undefined,
@@ -191,6 +192,10 @@ export function createWebServer(agent) {
     res.json({ models: result.rows });
   });
 
+  const reloadTelegram = () => {
+    if (telegramManager) telegramManager.reload().catch(e => console.error('[telegram] reload failed:', e.message));
+  };
+
   app.post('/api/models', authMiddleware, async (req, res) => {
     const { name, provider, base_url, model_id, api_key, think, accepts } = req.body;
     if (!name || !model_id) return res.status(400).json({ error: 'name and model_id required' });
@@ -199,6 +204,7 @@ export function createWebServer(agent) {
       [name, provider || 'ollama', base_url || 'http://127.0.0.1:11434', model_id, api_key || null, think || false, JSON.stringify(accepts || ['text'])],
     );
     res.json(result.rows[0]);
+    reloadTelegram();
   });
 
   app.put('/api/models/:id', authMiddleware, async (req, res) => {
@@ -212,6 +218,7 @@ export function createWebServer(agent) {
     );
     if (result.rowCount === 0) return res.status(404).json({ error: 'not found' });
     res.json(result.rows[0]);
+    reloadTelegram();
   });
 
   app.post('/api/models/test', authMiddleware, async (req, res) => {
@@ -255,12 +262,14 @@ export function createWebServer(agent) {
   app.delete('/api/models/:id', authMiddleware, async (req, res) => {
     await query('DELETE FROM models WHERE id = $1', [req.params.id]);
     res.json({ ok: true });
+    reloadTelegram();
   });
 
   // --- Agents CRUD ---
   app.get('/api/agents', authMiddleware, async (req, res) => {
     const result = await query(
-      `SELECT a.*, m.name as model_name, m.model_id as ollama_model, m.think, m.accepts
+      `SELECT a.*, m.name as model_name, m.model_id as ollama_model, m.think, m.accepts,
+        COALESCE((SELECT json_agg(skill_id) FROM agent_skills WHERE agent_id = a.id), '[]'::json) AS skill_ids
        FROM agents a LEFT JOIN models m ON a.model_id = m.id ORDER BY a.id`);
     res.json({ agents: result.rows });
   });
@@ -273,6 +282,7 @@ export function createWebServer(agent) {
       [name, system_prompt || '', model_id || null],
     );
     res.json(result.rows[0]);
+    reloadTelegram();
   });
 
   app.put('/api/agents/:id', authMiddleware, async (req, res) => {
@@ -283,11 +293,73 @@ export function createWebServer(agent) {
     );
     if (result.rowCount === 0) return res.status(404).json({ error: 'not found' });
     res.json(result.rows[0]);
+    reloadTelegram();
   });
 
   app.delete('/api/agents/:id', authMiddleware, async (req, res) => {
     if (req.params.id === '1') return res.status(400).json({ error: 'cannot delete default agent' });
     await query('DELETE FROM agents WHERE id = $1', [req.params.id]);
+    res.json({ ok: true });
+    reloadTelegram();
+  });
+
+  // --- Skills CRUD ---
+  app.get('/api/skills', authMiddleware, async (req, res) => {
+    const result = await query(`
+      SELECT s.*, COALESCE(
+        (SELECT json_agg(agent_id) FROM agent_skills WHERE skill_id = s.id),
+        '[]'::json
+      ) AS agent_ids
+      FROM skills s ORDER BY s.id
+    `);
+    res.json({ skills: result.rows });
+  });
+
+  app.post('/api/skills', authMiddleware, async (req, res) => {
+    const { name, description, content, agent_ids } = req.body;
+    if (!name) return res.status(400).json({ error: 'name required' });
+    const result = await query(
+      'INSERT INTO skills (name, description, content) VALUES ($1, $2, $3) RETURNING *',
+      [name, description || '', content || ''],
+    );
+    const skill = result.rows[0];
+    if (Array.isArray(agent_ids) && agent_ids.length) {
+      for (const aid of agent_ids) {
+        await query('INSERT INTO agent_skills (skill_id, agent_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [skill.id, aid]);
+      }
+    }
+    res.json(skill);
+  });
+
+  app.put('/api/skills/:id', authMiddleware, async (req, res) => {
+    const { name, description, content, agent_ids } = req.body;
+    const result = await query(
+      'UPDATE skills SET name = COALESCE($1, name), description = COALESCE($2, description), content = COALESCE($3, content) WHERE id = $4 RETURNING *',
+      [name, description, content, req.params.id],
+    );
+    if (result.rowCount === 0) return res.status(404).json({ error: 'not found' });
+    if (Array.isArray(agent_ids)) {
+      await query('DELETE FROM agent_skills WHERE skill_id = $1', [req.params.id]);
+      for (const aid of agent_ids) {
+        await query('INSERT INTO agent_skills (skill_id, agent_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [req.params.id, aid]);
+      }
+    }
+    res.json(result.rows[0]);
+  });
+
+  app.delete('/api/skills/:id', authMiddleware, async (req, res) => {
+    await query('DELETE FROM skills WHERE id = $1', [req.params.id]);
+    res.json({ ok: true });
+  });
+
+  // Manage skill assignment from agent perspective
+  app.put('/api/agents/:id/skills', authMiddleware, async (req, res) => {
+    const { skill_ids } = req.body;
+    if (!Array.isArray(skill_ids)) return res.status(400).json({ error: 'skill_ids array required' });
+    await query('DELETE FROM agent_skills WHERE agent_id = $1', [req.params.id]);
+    for (const sid of skill_ids) {
+      await query('INSERT INTO agent_skills (agent_id, skill_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [req.params.id, sid]);
+    }
     res.json({ ok: true });
   });
 

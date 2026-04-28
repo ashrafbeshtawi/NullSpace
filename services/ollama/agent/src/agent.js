@@ -1,6 +1,7 @@
 import { chat, chatStream } from './llm.js';
 import config from './config.js';
 import { transcribeAudio } from './audio.js';
+import { listSkillsForAgent } from './tools/skills.js';
 
 const MAX_ITERATIONS = 10;
 
@@ -14,7 +15,7 @@ export class Agent {
     this.#registry = registry;
   }
 
-  #buildSystemPrompt(customPrompt) {
+  async #buildSystemPrompt(customPrompt, agentId) {
     const base = customPrompt || DEFAULT_SYSTEM_PROMPT;
 
     const toolDescriptions = this.#registry.getDefinitions().map(t => {
@@ -25,19 +26,32 @@ export class Agent {
       return `- ${fn.name}(${params}): ${fn.description}`;
     }).join('\n');
 
+    // Skills available to this agent
+    let skillsBlock = '';
+    if (agentId) {
+      try {
+        const skills = await listSkillsForAgent(agentId);
+        if (skills.length) {
+          skillsBlock = '\n\nAvailable skills (use read_skill with the ID to view full content):\n' +
+            skills.map(s => `- [${s.id}] ${s.name}: ${s.description || '(no description)'}`).join('\n');
+        }
+      } catch {}
+    }
+
     return `${base}
 
 Current date: ${new Date().toISOString().split('T')[0]}
 Workspace: ${config.paths.files}
 
 You have the following tools available. Use them whenever needed — do not say you lack capabilities:
-${toolDescriptions}
+${toolDescriptions}${skillsBlock}
 
 IMPORTANT rules for tool use:
 - Always prefer ACTION over asking the user. If you can do it with your tools, do it.
 - Chain tools together autonomously. For example: use web_search to find URLs, then use web_fetch on those URLs to read their content, then summarize. Do NOT ask the user to pick URLs or confirm steps.
 - Never say "I cannot" when you have a tool that can do it. Just use the tool.
 - When asked to research something, search the web, visit multiple result pages, and synthesize the information yourself.
+- If a skill in the list above looks relevant to the task, call read_skill with its ID first to learn the proper approach.
 - You can call tools multiple times in sequence. Do not stop after one tool call if more are needed to complete the task.`;
   }
 
@@ -46,7 +60,8 @@ IMPORTANT rules for tool use:
    * Returns { content, toolCalls } where toolCalls is an array of { name, args, result }
    */
   async run(userMessage, history = [], opts = {}) {
-    const systemPrompt = this.#buildSystemPrompt(opts.systemPrompt);
+    const agentId = opts.agentId || null;
+    const systemPrompt = await this.#buildSystemPrompt(opts.systemPrompt, agentId);
     const mc = opts.modelConfig || {};
     const baseUrl = mc.base_url || config.ollama.url;
     const model = mc.model_id || config.ollama.model;
@@ -113,6 +128,7 @@ IMPORTANT rules for tool use:
         const result = await this.#registry.execute(
           call.function.name,
           call.function.arguments,
+          { agentId },
         );
         collectedToolCalls.push({
           name: call.function.name,

@@ -16,6 +16,7 @@ import { register as registerFiles } from './tools/files.js';
 import { register as registerCron } from './tools/cron.js';
 import { register as registerDb } from './tools/db.js';
 import { register as registerWeb } from './tools/web.js';
+import { register as registerSkills } from './tools/skills.js';
 
 async function main() {
   console.log('[dogeclaw] Starting...');
@@ -38,6 +39,7 @@ async function main() {
   registerCron(registry);
   if (config.database.agentUrl) registerDb(registry);
   registerWeb(registry);
+  if (config.database.agentUrl) registerSkills(registry);
 
   // MCP clients
   const mcp = new McpManager();
