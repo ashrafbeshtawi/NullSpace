@@ -39,7 +39,10 @@ services:
     networks:
       - internal
 
-  # --- DB Migrations (one-shot) ---
+  # --- DB Migrations (one-shot, per-service) ---
+
+  # Platform-level migrations (cluster setup beyond what init-databases.sql does).
+  # No SQL files yet; kept ready for future cross-service schema/grants.
   migrations:
     image: flyway/flyway:11-alpine
     container_name: migrations
@@ -52,6 +55,31 @@ services:
       - migrate
     volumes:
       - ./services/migrations/sql:/flyway/sql:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - internal
+    restart: "no"
+
+  # DogeClaw owns its own schema (tables + role + grants).
+  # When dogeclaw is extracted to its own repo, this becomes a published image
+  # (ghcr.io/.../dogeclaw-migrations:vX.Y.Z) consumed by NullSpace as-is.
+  # Uses its own flyway_schema_history table so it can coexist with other
+  # Flyway services pointed at the same database.
+  dogeclaw-migrations:
+    image: flyway/flyway:11-alpine
+    container_name: dogeclaw-migrations
+    command:
+      - -url=jdbc:postgresql://postgres:5432/${POSTGRES_DB:-nullspace}
+      - -user=${POSTGRES_USER:-nullspace}
+      - -password=${POSTGRES_PASSWORD:-changeme}
+      - -table=dogeclaw_flyway_history
+      - -connectRetries=10
+      - -baselineOnMigrate=true
+      - migrate
+    volumes:
+      - ./services/dogeclaw/migrations/sql:/flyway/sql:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -168,7 +196,7 @@ services:
       # /opt/agent-deps and is symlinked in by the entrypoint.
       - ./services/dogeclaw/agent:/opt/agent
     depends_on:
-      migrations:
+      dogeclaw-migrations:
         condition: service_completed_successfully
     labels:
       - "traefik.enable=true"
