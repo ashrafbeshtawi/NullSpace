@@ -14,7 +14,7 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           password: ${{ secrets.VPS_PASSWORD }}
-          command_timeout: 15m
+          command_timeout: 30m
           script: |
             set -e
             cd /opt/NullSpace
