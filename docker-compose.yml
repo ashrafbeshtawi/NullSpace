@@ -63,23 +63,16 @@ services:
     restart: "no"
 
   # DogeClaw owns its own schema (tables + role + grants).
-  # When dogeclaw is extracted to its own repo, this becomes a published image
-  # (ghcr.io/.../dogeclaw-migrations:vX.Y.Z) consumed by NullSpace as-is.
-  # Uses its own flyway_schema_history table so it can coexist with other
-  # Flyway services pointed at the same database.
+  # Built from a self-contained image (SQL + flyway settings baked in).
+  # When dogeclaw is extracted to its own repo, this `build:` becomes
+  # `image: ghcr.io/ashrafbeshtawi/dogeclaw-migrations:vX.Y.Z` — same env vars.
   dogeclaw-migrations:
-    image: flyway/flyway:11-alpine
+    build: ./services/dogeclaw/migrations
     container_name: dogeclaw-migrations
-    command:
-      - -url=jdbc:postgresql://postgres:5432/${POSTGRES_DB:-nullspace}
-      - -user=${POSTGRES_USER:-nullspace}
-      - -password=${POSTGRES_PASSWORD:-changeme}
-      - -table=dogeclaw_flyway_history
-      - -connectRetries=10
-      - -baselineOnMigrate=true
-      - migrate
-    volumes:
-      - ./services/dogeclaw/migrations/sql:/flyway/sql:ro
+    environment:
+      - FLYWAY_URL=jdbc:postgresql://postgres:5432/${POSTGRES_DB:-nullspace}
+      - FLYWAY_USER=${POSTGRES_USER:-nullspace}
+      - FLYWAY_PASSWORD=${POSTGRES_PASSWORD:-changeme}
     depends_on:
       postgres:
         condition: service_healthy
