@@ -19,8 +19,6 @@ jobs:
           filters: |
             dockerfile:
               - 'services/dogeclaw/Dockerfile'
-              - 'services/dogeclaw/agent/package.json'
-              - 'services/dogeclaw/agent/package-lock.json'
 
   build:
     needs: changes

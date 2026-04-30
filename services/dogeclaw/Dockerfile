@@ -13,13 +13,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Pre-download whisper base model
 RUN python3 -c "import whisper; whisper.load_model('base')"
 
-# Install agent dependencies into a sibling directory so a host volume
-# mount on /opt/agent (used in prod for hot code reloads) does not shadow
-# the baked node_modules. The entrypoint symlinks them in at startup.
-COPY agent/package*.json /opt/agent-deps/
-RUN cd /opt/agent-deps && npm ci --omit=dev
-
-# Bake the agent source as a fallback (used when no volume mount overrides /opt/agent)
+# Bake the agent source as a fallback (used when no volume mount overrides /opt/agent).
+# node_modules is NOT installed at build time — the entrypoint runs `npm install`
+# on every start, into the host-mounted agent/ directory.
 COPY agent/ /opt/agent/
 
 COPY entrypoint.sh /entrypoint.sh
