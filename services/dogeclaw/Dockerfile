@@ -13,9 +13,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Pre-download whisper base model
 RUN python3 -c "import whisper; whisper.load_model('base')"
 
-# Install DogeClaw agent
+# Install agent dependencies into a sibling directory so a host volume
+# mount on /opt/agent (used in prod for hot code reloads) does not shadow
+# the baked node_modules. The entrypoint symlinks them in at startup.
+COPY agent/package*.json /opt/agent-deps/
+RUN cd /opt/agent-deps && npm ci --omit=dev
+
+# Bake the agent source as a fallback (used when no volume mount overrides /opt/agent)
 COPY agent/ /opt/agent/
-RUN cd /opt/agent && npm ci --omit=dev
 
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh

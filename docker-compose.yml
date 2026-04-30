@@ -163,6 +163,10 @@ services:
       - DOGECLAW_WEBHOOK_URL=${DOGECLAW_WEBHOOK_URL:-}
     volumes:
       - agent_workspace:/root/agent-workspace
+      # Mount agent source so code changes are picked up on container restart
+      # without rebuilding the image. node_modules stays in the image at
+      # /opt/agent-deps and is symlinked in by the entrypoint.
+      - ./services/dogeclaw/agent:/opt/agent
     depends_on:
       migrations:
         condition: service_completed_successfully

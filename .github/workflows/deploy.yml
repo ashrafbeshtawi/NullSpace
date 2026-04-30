@@ -5,10 +5,29 @@ on:
     branches: [main]
 
 jobs:
-  deploy:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      dockerfile: ${{ steps.filter.outputs.dockerfile }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            dockerfile:
+              - 'services/dogeclaw/Dockerfile'
+              - 'services/dogeclaw/agent/package.json'
+              - 'services/dogeclaw/agent/package-lock.json'
+
+  build:
+    needs: changes
+    if: needs.changes.outputs.dockerfile == 'true'
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy via SSH
+      - name: Build dogeclaw image on VPS
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.VPS_HOST }}
@@ -16,7 +35,26 @@ jobs:
           password: ${{ secrets.VPS_PASSWORD }}
           command_timeout: 20m
           script: |
+            set -e
+            cd /opt/NullSpace
+            git pull origin main
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml build dogeclaw
+
+  deploy:
+    needs: [changes, build]
+    if: always() && (needs.build.result == 'success' || needs.build.result == 'skipped')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Restart stack on VPS
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          command_timeout: 10m
+          script: |
+            set -e
             cd /opt/NullSpace
             git pull origin main
             docker compose -f docker-compose.yml -f docker-compose.prod.yml down --remove-orphans
-            docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d

@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Reinstall agent deps inside the running container.
+# The entrypoint already does this on startup when package-lock.json drifts,
+# but this is handy mid-session when you've just edited package.json and
+# don't want to restart the container.
+set -e
+cd "$(dirname "$0")/../../.."
+docker compose exec dogeclaw bash -c '
+  cp /opt/agent/package.json /opt/agent/package-lock.json /opt/agent-deps/ &&
+  cd /opt/agent-deps &&
+  npm ci --omit=dev
+'
