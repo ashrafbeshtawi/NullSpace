@@ -62,12 +62,11 @@ services:
       - internal
     restart: "no"
 
-  # DogeClaw owns its own schema (tables + role + grants).
-  # Built from a self-contained image (SQL + flyway settings baked in).
-  # When dogeclaw is extracted to its own repo, this `build:` becomes
-  # `image: ghcr.io/ashrafbeshtawi/dogeclaw-migrations:vX.Y.Z` — same env vars.
+  # DogeClaw migrations (Flyway with the agent's schema baked in).
+  # Source lives at github.com/ashrafbeshtawi/dogeclaw — pinned to a major.minor
+  # tag so patches roll in automatically while breaking changes need an explicit bump.
   dogeclaw-migrations:
-    build: ./services/dogeclaw/migrations
+    image: ghcr.io/ashrafbeshtawi/dogeclaw-migrations:1.0
     container_name: dogeclaw-migrations
     environment:
       - FLYWAY_URL=jdbc:postgresql://postgres:5432/${POSTGRES_DB:-nullspace}
@@ -168,9 +167,9 @@ services:
     networks:
       - internal
 
-  # DogeClaw agent — auto-starts
+  # DogeClaw agent — auto-starts. Source: github.com/ashrafbeshtawi/dogeclaw
   dogeclaw:
-    build: ./services/dogeclaw
+    image: ghcr.io/ashrafbeshtawi/dogeclaw:1.0
     container_name: dogeclaw
     environment:
       - DOGECLAW_OLLAMA_URL=${DOGECLAW_OLLAMA_URL:-http://ollama:11434}
@@ -184,10 +183,6 @@ services:
       - DOGECLAW_WEBHOOK_URL=${DOGECLAW_WEBHOOK_URL:-}
     volumes:
       - agent_workspace:/root/agent-workspace
-      # Mount agent source so code changes are picked up on container restart
-      # without rebuilding the image. node_modules stays in the image at
-      # /opt/agent-deps and is symlinked in by the entrypoint.
-      - ./services/dogeclaw/agent:/opt/agent
     depends_on:
       dogeclaw-migrations:
         condition: service_completed_successfully

@@ -5,54 +5,22 @@ on:
     branches: [main]
 
 jobs:
-  changes:
-    runs-on: ubuntu-latest
-    outputs:
-      dockerfile: ${{ steps.filter.outputs.dockerfile }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
-      - uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            dockerfile:
-              - 'services/dogeclaw/Dockerfile'
-
-  build:
-    needs: changes
-    if: needs.changes.outputs.dockerfile == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Build dogeclaw image on VPS
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          password: ${{ secrets.VPS_PASSWORD }}
-          command_timeout: 20m
-          script: |
-            set -e
-            cd /opt/NullSpace
-            git pull origin main
-            docker compose -f docker-compose.yml -f docker-compose.prod.yml build dogeclaw
-
   deploy:
-    needs: [changes, build]
-    if: always() && (needs.build.result == 'success' || needs.build.result == 'skipped')
     runs-on: ubuntu-latest
     steps:
-      - name: Restart stack on VPS
+      - name: Deploy via SSH
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           password: ${{ secrets.VPS_PASSWORD }}
-          command_timeout: 10m
+          command_timeout: 15m
           script: |
             set -e
             cd /opt/NullSpace
             git pull origin main
+            # Pull updated third-party images (dogeclaw, dogeclaw-migrations, postgres, etc.)
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml pull
             docker compose -f docker-compose.yml -f docker-compose.prod.yml down --remove-orphans
-            docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+            # --build covers the few services still built locally (admin, default, ollama)
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build

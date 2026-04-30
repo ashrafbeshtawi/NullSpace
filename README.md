@@ -60,34 +60,29 @@ Personal multi-service platform running on Docker with Traefik as a reverse prox
 
 A custom Node.js AI agent with a web UI and Telegram integration. Multi-agent, multi-model, tool-driven.
 
+**Source lives in its own repo:** [github.com/ashrafbeshtawi/dogeclaw](https://github.com/ashrafbeshtawi/dogeclaw). NullSpace consumes it as two prebuilt images from GHCR:
+- `ghcr.io/ashrafbeshtawi/dogeclaw` — the agent
+- `ghcr.io/ashrafbeshtawi/dogeclaw-migrations` — Flyway with the agent's schema baked in
+
+Both pinned to the `1.0` tag in `docker-compose.yml`. Bump that pin to roll a new dogeclaw version into NullSpace.
+
 ### Features
-- **Web UI**: streaming chat with live thinking display, collapsible tool calls, session management, image/audio upload, agent picker
-- **Telegram bots**: multiple bots configurable from the UI, immediate or periodic response modes, voice note transcription, image forwarding
-- **Multi-agent**: define agents with custom system prompts, models, and skill assignments
-- **Multi-model providers**: Ollama (local), OpenRouter, Google Gemini — configurable per agent
-- **Skills system**: reusable knowledge/instructions stored in DB, assignable per-agent or public
-- **Built-in tools**: shell exec, file ops, cron jobs, PostgreSQL queries, web search/fetch/research, MCP bridge, skill reading
-- **Cron**: agent can schedule tasks for itself; results optionally pushed to Telegram
-- **Audio**: Whisper transcription for voice messages (or forwarded raw to audio-capable models)
-- **Vision**: image inputs forwarded to vision-capable models
+- Web UI with streaming chat, live thinking display, collapsible tool calls, image/audio upload
+- Multi-bot Telegram (immediate or periodic response modes, voice transcription, image forwarding)
+- Multi-agent + multi-model (Ollama, OpenRouter, Google Gemini), DB-backed skills system
+- Built-in tools: shell exec, file ops, cron, PostgreSQL queries, web search/fetch/research, MCP bridge
 
 ### Admin UI
 
-Visit `dogeclaw.beshtawi.online/admin` to manage:
-- **Models** — add Ollama / OpenRouter / Google Gemini models, test the connection, set capabilities (text/image/audio/video)
-- **Agents** — create agents with system prompts, assign a model, assign skills
-- **Skills** — DB-backed skill definitions; assign to specific agents or leave public for all
-- **Channels** — Telegram bots (token, allowed users, response mode, agent binding); webhooks auto-registered
-
-All changes hot-reload — no restart needed.
+Visit `dogeclaw.beshtawi.online/admin` to manage **Models**, **Agents**, **Skills**, and **Channels** (Telegram bots; webhooks auto-registered). All changes hot-reload — no restart.
 
 ### Database isolation
 
-DogeClaw uses two PostgreSQL roles for safety:
-- **Admin role** — used by the web UI for full CRUD on `models`, `agents`, `channels`, `skills`, `agent_skills`
-- **Agent role** (`dogeclaw`) — used by the agent's `query_database` tool. Read-only on config tables, but can `CREATE TABLE` and full read/write on its own tables.
+DogeClaw uses two PostgreSQL roles:
+- **Admin role** — full CRUD on dogeclaw config tables
+- **Agent role** (`dogeclaw`) — restricted SELECT on config tables; can manage its own working tables
 
-The `dogeclaw` role is created in `scripts/init-databases.sql`.
+Both the role and the schema are created by the `dogeclaw-migrations` image when the stack first starts — NullSpace doesn't manage any of that itself anymore.
 
 ## Setup
 
@@ -212,7 +207,7 @@ Services run on `*.localhost:8000` (HTTP, no auth on Traefik dashboard).
 
 ## CI/CD
 
-Pushes to `main` trigger a GitHub Actions workflow that SSHs into the VPS, pulls the latest code, and rebuilds the containers.
+Pushes to `main` trigger a GitHub Actions workflow that SSHs into the VPS, pulls the latest code, refreshes registry images, and recreates the containers.
 
 Required GitHub secrets:
 - `VPS_HOST`
@@ -221,9 +216,13 @@ Required GitHub secrets:
 
 The deploy script runs:
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.prod.yml down --remove-orphans
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
+git pull origin main
+docker compose ... pull        # refreshes dogeclaw + other registry images
+docker compose ... down --remove-orphans
+docker compose ... up -d --build   # builds local services (admin, default, ollama)
 ```
+
+DogeClaw upgrades happen by bumping the image tag in `docker-compose.yml` (e.g. `:1.0` → `:1.1`) and pushing — the `pull` step grabs the new image. Rolling within the same major.minor (`1.0.x` patches) needs no NullSpace push at all; the next deploy here picks them up via `pull`.
 
 Ollama is not redeployed automatically — start it manually on the VPS when needed.
 
@@ -236,46 +235,14 @@ NullSpace/
 ├── docker-compose.override.yml     # Dev overrides (HTTP, localhost domains)
 ├── .env / .env.example             # Secrets and config
 ├── scripts/
-│   └── init-databases.sql          # Postgres initial setup (creates extra DBs + dogeclaw role)
+│   └── init-databases.sql          # Postgres initial setup (creates extra DBs)
 └── services/
     ├── admin/                      # PHP dashboard linking all services
     ├── default/                    # Main landing page
     ├── ollama/                     # Ollama LLM container (manual start)
     │   ├── Dockerfile
     │   └── entrypoint.sh
-    └── dogeclaw/                   # DogeClaw AI agent (auto-starts)
-        ├── Dockerfile
-        ├── entrypoint.sh
-        ├── logo.png
-        └── agent/
-            ├── package.json
-            └── src/
-                ├── index.js        # Boot orchestrator
-                ├── config.js
-                ├── agent.js        # Core agent loop (LLM + tools)
-                ├── llm.js          # Ollama / OpenRouter / Gemini drivers
-                ├── audio.js        # Whisper transcription
-                ├── db/
-                │   ├── pool.js     # Two pg pools (admin + agent)
-                │   └── schema.js   # Auto-migration
-                ├── tools/
-                │   ├── index.js    # ToolRegistry
-                │   ├── exec.js     # run_command
-                │   ├── files.js    # file_operation
-                │   ├── cron.js     # manage_cron
-                │   ├── db.js       # query_database
-                │   ├── web.js      # web_search, web_fetch, web_research
-                │   ├── skills.js   # read_skill
-                │   └── mcp.js      # MCP tool bridge
-                ├── cron/runner.js  # In-process cron scheduler
-                ├── channels/
-                │   └── telegram.js # Multi-bot Telegram (polling or webhook)
-                ├── mcp/client.js   # MCP stdio clients
-                └── web/
-                    ├── server.js   # Express + SSE chat + REST API
-                    └── public/
-                        ├── login.html
-                        ├── index.html  # Chat UI
-                        ├── admin.html  # Admin panel
-                        └── logo.png
+    └── migrations/sql/             # Platform-level Flyway migrations (empty for now)
 ```
+
+DogeClaw lives in its own repo — see [github.com/ashrafbeshtawi/dogeclaw](https://github.com/ashrafbeshtawi/dogeclaw).
