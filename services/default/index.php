@@ -1,2 +1,3 @@
 <?php
-echo "Welcome to beshtawi.online";
+$domain = getenv('DOMAIN') ?: 'localhost';
+echo "Welcome to {$domain}";

@@ -151,7 +151,7 @@ curl "https://api.telegram.org/bot<TOKEN>/getMe"
 curl "https://api.telegram.org/bot<TOKEN>/getWebhookInfo"
 
 # Set webhook manually
-curl "https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://dogeclaw.beshtawi.online/webhook/<bot_name>"
+curl "https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://dogeclaw.${DOMAIN}/webhook/<bot_name>"
 
 # Delete webhook
 curl "https://api.telegram.org/bot<TOKEN>/deleteWebhook"
@@ -239,13 +239,16 @@ http://localhost:8080                   Traefik insecure dashboard
 
 ## URLs (prod)
 
+All hostnames derive from `${DOMAIN}` in `.env` (default `datenflow.de`). Apex 301-redirects to `www.${DOMAIN}`.
+
 ```
-https://dogeclaw.beshtawi.online        DogeClaw
-https://admin.beshtawi.online           Admin (basic auth)
-https://traefik.beshtawi.online         Traefik (basic auth)
-https://portainer.beshtawi.online       Portainer
-https://status.beshtawi.online          Uptime Kuma
-https://errors.beshtawi.online          GlitchTip
+https://www.${DOMAIN}              Main site (apex → www)
+https://dogeclaw.${DOMAIN}         DogeClaw
+https://admin.${DOMAIN}            Admin (basic auth)
+https://traefik.${DOMAIN}          Traefik (basic auth)
+https://portainer.${DOMAIN}        Portainer
+https://status.${DOMAIN}           Uptime Kuma
+https://errors.${DOMAIN}           GlitchTip
 ```
 
 ## Ports

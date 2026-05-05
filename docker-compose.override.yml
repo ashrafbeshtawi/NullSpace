@@ -32,11 +32,17 @@ services:
       - "traefik.http.services.uptime.loadbalancer.server.port=3001"
 
   glitchtip:
+    environment:
+      - GLITCHTIP_DOMAIN=http://errors.localhost:8000
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.glitchtip.rule=Host(`errors.localhost`)"
       - "traefik.http.routers.glitchtip.entrypoints=web"
       - "traefik.http.services.glitchtip.loadbalancer.server.port=8000"
+
+  glitchtip-worker:
+    environment:
+      - GLITCHTIP_DOMAIN=http://errors.localhost:8000
 
   admin:
     environment:

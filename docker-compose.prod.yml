@@ -15,7 +15,7 @@ services:
       - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.traefik.rule=Host(`traefik.beshtawi.online`)"
+      - "traefik.http.routers.traefik.rule=Host(`traefik.${DOMAIN}`)"
       - "traefik.http.routers.traefik.entrypoints=websecure"
       - "traefik.http.routers.traefik.tls.certresolver=letsencrypt"
       - "traefik.http.routers.traefik.service=api@internal"
@@ -32,7 +32,7 @@ services:
   portainer:
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.portainer.rule=Host(`portainer.beshtawi.online`)"
+      - "traefik.http.routers.portainer.rule=Host(`portainer.${DOMAIN}`)"
       - "traefik.http.routers.portainer.entrypoints=websecure"
       - "traefik.http.routers.portainer.tls.certresolver=letsencrypt"
       - "traefik.http.routers.portainer.middlewares=auth"
@@ -41,37 +41,45 @@ services:
   uptime-kuma:
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.uptime.rule=Host(`status.beshtawi.online`)"
+      - "traefik.http.routers.uptime.rule=Host(`status.${DOMAIN}`)"
       - "traefik.http.routers.uptime.entrypoints=websecure"
       - "traefik.http.routers.uptime.tls.certresolver=letsencrypt"
       - "traefik.http.routers.uptime.middlewares=auth"
       - "traefik.http.services.uptime.loadbalancer.server.port=3001"
 
   glitchtip:
+    environment:
+      - GLITCHTIP_DOMAIN=https://errors.${DOMAIN}
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.glitchtip.rule=Host(`errors.beshtawi.online`)"
+      - "traefik.http.routers.glitchtip.rule=Host(`errors.${DOMAIN}`)"
       - "traefik.http.routers.glitchtip.entrypoints=websecure"
       - "traefik.http.routers.glitchtip.tls.certresolver=letsencrypt"
       - "traefik.http.routers.glitchtip.middlewares=auth"
       - "traefik.http.services.glitchtip.loadbalancer.server.port=8000"
 
+  glitchtip-worker:
+    environment:
+      - GLITCHTIP_DOMAIN=https://errors.${DOMAIN}
+
   admin:
     environment:
       - ADMIN_SCHEME=https
-      - ADMIN_DOMAIN=beshtawi.online
+      - ADMIN_DOMAIN=${DOMAIN}
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.admin.rule=Host(`admin.beshtawi.online`)"
+      - "traefik.http.routers.admin.rule=Host(`admin.${DOMAIN}`)"
       - "traefik.http.routers.admin.entrypoints=websecure"
       - "traefik.http.routers.admin.tls.certresolver=letsencrypt"
       - "traefik.http.routers.admin.middlewares=auth"
       - "traefik.http.services.admin.loadbalancer.server.port=80"
 
   dogeclaw:
+    environment:
+      - DOGECLAW_WEBHOOK_URL=https://dogeclaw.${DOMAIN}
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.dogeclaw.rule=Host(`dogeclaw.beshtawi.online`)"
+      - "traefik.http.routers.dogeclaw.rule=Host(`dogeclaw.${DOMAIN}`)"
       - "traefik.http.routers.dogeclaw.entrypoints=websecure"
       - "traefik.http.routers.dogeclaw.tls.certresolver=letsencrypt"
       - "traefik.http.services.dogeclaw.loadbalancer.server.port=3000"
@@ -79,7 +87,16 @@ services:
   main-app:
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.main-app.rule=Host(`beshtawi.online`)"
+      - "traefik.http.routers.main-app.rule=Host(`www.${DOMAIN}`)"
       - "traefik.http.routers.main-app.entrypoints=websecure"
       - "traefik.http.routers.main-app.tls.certresolver=letsencrypt"
       - "traefik.http.services.main-app.loadbalancer.server.port=80"
+      # Apex → www permanent redirect (subdomain-only routing).
+      - "traefik.http.routers.apex-redirect.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.apex-redirect.entrypoints=websecure"
+      - "traefik.http.routers.apex-redirect.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.apex-redirect.service=main-app"
+      - "traefik.http.routers.apex-redirect.middlewares=apex-to-www"
+      - "traefik.http.middlewares.apex-to-www.redirectregex.regex=^https?://${DOMAIN}/(.*)"
+      - "traefik.http.middlewares.apex-to-www.redirectregex.replacement=https://www.${DOMAIN}/$${1}"
+      - "traefik.http.middlewares.apex-to-www.redirectregex.permanent=true"

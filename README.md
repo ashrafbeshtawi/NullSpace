@@ -30,25 +30,27 @@ Personal multi-service platform running on Docker with Traefik as a reverse prox
 
 ## Services
 
+All public hostnames derive from `${DOMAIN}` in `.env` (default `datenflow.de`). Routing is **subdomain-only**: the apex 301-redirects to `www.${DOMAIN}`.
+
 ### Apps
 | Service | URL | Description |
 |---------|-----|-------------|
-| Main Site | `beshtawi.online` | Landing page |
-| DogeClaw | `dogeclaw.beshtawi.online` | AI agent (web UI + Telegram + cron + tools) |
+| Main Site | `www.${DOMAIN}` | Landing page (apex redirects here) |
+| DogeClaw | `dogeclaw.${DOMAIN}` | AI agent (web UI + Telegram + cron + tools) |
 | Ollama | (internal only) | Local LLM server — manual start |
 
 ### Infrastructure
 | Service | URL | Description |
 |---------|-----|-------------|
-| Admin Panel | `admin.beshtawi.online` | Dashboard linking all services (basic auth) |
-| Traefik | `traefik.beshtawi.online` | Reverse proxy dashboard (basic auth) |
-| Portainer | `portainer.beshtawi.online` | Docker management UI |
+| Admin Panel | `admin.${DOMAIN}` | Dashboard linking all services (basic auth) |
+| Traefik | `traefik.${DOMAIN}` | Reverse proxy dashboard (basic auth) |
+| Portainer | `portainer.${DOMAIN}` | Docker management UI |
 
 ### Monitoring
 | Service | URL | Description |
 |---------|-----|-------------|
-| Uptime Kuma | `status.beshtawi.online` | Uptime monitoring & status page |
-| GlitchTip | `errors.beshtawi.online` | Sentry-compatible error tracking |
+| Uptime Kuma | `status.${DOMAIN}` | Uptime monitoring & status page |
+| GlitchTip | `errors.${DOMAIN}` | Sentry-compatible error tracking |
 
 ### Shared (internal)
 | Service | Description |
@@ -74,7 +76,7 @@ Both pinned to the `1.0` tag in `docker-compose.yml`. Bump that pin to roll a ne
 
 ### Admin UI
 
-Visit `dogeclaw.beshtawi.online/admin` to manage **Models**, **Agents**, **Skills**, and **Channels** (Telegram bots; webhooks auto-registered). All changes hot-reload — no restart.
+Visit `dogeclaw.${DOMAIN}/admin` to manage **Models**, **Agents**, **Skills**, and **Channels** (Telegram bots; webhooks auto-registered). All changes hot-reload — no restart.
 
 ### Database isolation
 
@@ -105,6 +107,7 @@ Paste the output as `BASIC_AUTH_USERS` in `.env`.
 
 ### 3. Fill in `.env`
 
+- `DOMAIN` — public domain; everything else (Host rules, GlitchTip URL, DogeClaw webhook, from-email) is derived from it
 - `DB_USER`, `DB_PASSWORD`, `DB_NAME` — Postgres credentials
 - `BASIC_AUTH_USERS` — the bcrypt hash from above
 - `GLITCHTIP_SECRET_KEY` — `openssl rand -hex 32`
@@ -113,7 +116,6 @@ Paste the output as `BASIC_AUTH_USERS` in `.env`.
 - `DOGECLAW_ADMIN_DATABASE_URL` — full-access connection string
 - `DOGECLAW_DATABASE_URL` — restricted connection string (use `dogeclaw` user in prod)
 - `DOGECLAW_TELEGRAM_MODE` — `polling` (dev) or `webhook` (prod)
-- `DOGECLAW_WEBHOOK_URL` — `https://dogeclaw.beshtawi.online` for webhook mode
 
 ### 4. DNS
 
@@ -134,8 +136,8 @@ This starts everything except Ollama (which is on-demand).
 
 ### 6. Open
 
-- Admin dashboard: `https://admin.beshtawi.online`
-- DogeClaw: `https://dogeclaw.beshtawi.online` → log in → `/admin` to add models, agents, channels, skills
+- Admin dashboard: `https://admin.${DOMAIN}`
+- DogeClaw: `https://dogeclaw.${DOMAIN}` → log in → `/admin` to add models, agents, channels, skills
 
 ## Ollama (Local LLM)
 

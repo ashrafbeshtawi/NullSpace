@@ -131,7 +131,7 @@
 <body>
     <?php
     $scheme = getenv('ADMIN_SCHEME') ?: 'https';
-    $domain = getenv('ADMIN_DOMAIN') ?: 'beshtawi.online';
+    $domain = getenv('ADMIN_DOMAIN') ?: 'localhost';
     $port = getenv('ADMIN_PORT') ? ':' . getenv('ADMIN_PORT') : '';
     $is_dev = $scheme === 'http';
 
