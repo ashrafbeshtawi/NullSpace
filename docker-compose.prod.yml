@@ -90,7 +90,7 @@ services:
       - "traefik.http.routers.kiwelt.rule=Host(`www.${DOMAIN}`)"
       - "traefik.http.routers.kiwelt.entrypoints=websecure"
       - "traefik.http.routers.kiwelt.tls.certresolver=letsencrypt"
-      - "traefik.http.services.kiwelt.loadbalancer.server.port=80"
+      - "traefik.http.services.kiwelt.loadbalancer.server.port=3000"
       # Apex → www permanent redirect (subdomain-only routing).
       - "traefik.http.routers.apex-redirect.rule=Host(`${DOMAIN}`)"
       - "traefik.http.routers.apex-redirect.entrypoints=websecure"

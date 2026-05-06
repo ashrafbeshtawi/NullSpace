@@ -201,7 +201,7 @@ services:
       - DOMAIN=${DOMAIN}
     labels:
       - "traefik.enable=true"
-      - "traefik.http.services.kiwelt.loadbalancer.server.port=80"
+      - "traefik.http.services.kiwelt.loadbalancer.server.port=3000"
     networks:
       - public-web
 
