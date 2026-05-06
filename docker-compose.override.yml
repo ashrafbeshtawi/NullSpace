@@ -62,9 +62,9 @@ services:
       - "traefik.http.routers.dogeclaw.entrypoints=web"
       - "traefik.http.services.dogeclaw.loadbalancer.server.port=3000"
 
-  main-app:
+  kiwelt:
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.main-app.rule=Host(`localhost`)"
-      - "traefik.http.routers.main-app.entrypoints=web"
-      - "traefik.http.services.main-app.loadbalancer.server.port=80"
+      - "traefik.http.routers.kiwelt.rule=Host(`localhost`)"
+      - "traefik.http.routers.kiwelt.entrypoints=web"
+      - "traefik.http.services.kiwelt.loadbalancer.server.port=80"

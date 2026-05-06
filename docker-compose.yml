@@ -194,14 +194,14 @@ services:
       - public-web
       - internal
 
-  main-app:
-    build: ./services/default
-    container_name: main-app
+  kiwelt:
+    image: ghcr.io/ashrafbeshtawi/kiwelt:latest
+    container_name: kiwelt
     environment:
       - DOMAIN=${DOMAIN}
     labels:
       - "traefik.enable=true"
-      - "traefik.http.services.main-app.loadbalancer.server.port=80"
+      - "traefik.http.services.kiwelt.loadbalancer.server.port=80"
     networks:
       - public-web
 
