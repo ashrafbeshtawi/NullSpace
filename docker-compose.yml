@@ -66,7 +66,7 @@ services:
   # Source lives at github.com/ashrafbeshtawi/dogeclaw — pinned to a major.minor
   # tag so patches roll in automatically while breaking changes need an explicit bump.
   dogeclaw-migrations:
-    image: ghcr.io/ashrafbeshtawi/dogeclaw-migrations:1.0
+    image: ghcr.io/ashrafbeshtawi/dogeclaw-migrations:latest
     container_name: dogeclaw-migrations
     environment:
       - FLYWAY_URL=jdbc:postgresql://postgres:5432/${POSTGRES_DB:-nullspace}
@@ -169,7 +169,7 @@ services:
 
   # DogeClaw agent — auto-starts. Source: github.com/ashrafbeshtawi/dogeclaw
   dogeclaw:
-    image: ghcr.io/ashrafbeshtawi/dogeclaw:1.0
+    image: ghcr.io/ashrafbeshtawi/dogeclaw:latest
     container_name: dogeclaw
     environment:
       - DOGECLAW_OLLAMA_URL=${DOGECLAW_OLLAMA_URL:-http://ollama:11434}
