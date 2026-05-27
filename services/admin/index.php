@@ -1,3 +1,10 @@
+<?php
+session_start();
+if (empty($_SESSION['csrf'])) {
+    $_SESSION['csrf'] = bin2hex(random_bytes(32));
+}
+$csrf = $_SESSION['csrf'];
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -123,8 +130,51 @@
             text-overflow: ellipsis;
         }
 
+        .operations {
+            width: 100%;
+            max-width: 1100px;
+            margin: 3rem auto 0;
+        }
+        .operations .section-title { margin-bottom: 0.75rem; }
+        .ops-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.6rem;
+        }
+        .ops-btn {
+            background: #0c0c14;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 14px;
+            padding: 1.25rem 1.35rem;
+            color: #e2e8f0;
+            text-align: left;
+            cursor: pointer;
+            font: inherit;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        .ops-btn:hover {
+            background: #10101a;
+            border-color: rgba(255, 255, 255, 0.08);
+            transform: translateX(2px);
+        }
+        .ops-btn .icon { background: rgba(248, 113, 113, 0.08); color: #f87171; }
+        .ops-form { margin: 0; }
+        .ops-btn-name {
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+        .ops-btn-desc {
+            color: #475569;
+            font-size: 0.75rem;
+            margin-top: 0.1rem;
+        }
+
         @media (max-width: 700px) {
             .dashboard { grid-template-columns: 1fr; gap: 1rem; }
+            .ops-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -180,6 +230,32 @@
             </div>
         </div>
         <?php endforeach; ?>
+    </div>
+
+    <?php
+    $operations = [
+        ['action' => 'deploy',          'name' => 'Deploy',          'desc' => 'git pull + docker compose pull + up -d', 'icon' => '&#9889;'],
+        ['action' => 'backup-postgres', 'name' => 'Backup Postgres', 'desc' => 'pg_dumpall to /var/backups/nullspace',    'icon' => '&#128190;'],
+        ['action' => 'renew-certs',     'name' => 'Renew Certs',     'desc' => 'Restart traefik to retry Let\'s Encrypt', 'icon' => '&#128274;'],
+    ];
+    ?>
+    <div class="operations">
+        <div class="section-title">VPS Operations</div>
+        <div class="ops-grid">
+            <?php foreach ($operations as $op): ?>
+            <form method="POST" action="/run.php" target="_blank" class="ops-form">
+                <input type="hidden" name="csrf" value="<?= htmlspecialchars($csrf) ?>">
+                <input type="hidden" name="action" value="<?= htmlspecialchars($op['action']) ?>">
+                <button type="submit" class="ops-btn">
+                    <div class="icon"><?= $op['icon'] ?></div>
+                    <div class="card-info">
+                        <div class="ops-btn-name"><?= htmlspecialchars($op['name']) ?></div>
+                        <div class="ops-btn-desc"><?= htmlspecialchars($op['desc']) ?></div>
+                    </div>
+                </button>
+            </form>
+            <?php endforeach; ?>
+        </div>
     </div>
 </body>
 </html>

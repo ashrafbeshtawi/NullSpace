@@ -68,6 +68,7 @@ services:
   dogeclaw-migrations:
     image: ghcr.io/ashrafbeshtawi/dogeclaw-migrations:latest
     container_name: dogeclaw-migrations
+    profiles: ["full"]
     environment:
       - FLYWAY_URL=jdbc:postgresql://postgres:5432/${POSTGRES_DB:-nullspace}
       - FLYWAY_USER=${POSTGRES_USER:-nullspace}
@@ -146,6 +147,13 @@ services:
   admin:
     build: ./services/admin
     container_name: admin
+    # Mounting docker.sock + the repo gives the admin page enough access to
+    # run the maintenance scripts in ./bin/ (deploy, backup, renew-certs).
+    # Effectively root-on-host, so this service stays behind basic auth in
+    # prod (see docker-compose.prod.yml).
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - .:/opt/NullSpace
     labels:
       - "traefik.enable=true"
       - "traefik.http.services.admin.loadbalancer.server.port=80"
@@ -167,10 +175,13 @@ services:
     networks:
       - internal
 
-  # DogeClaw agent — auto-starts. Source: github.com/ashrafbeshtawi/dogeclaw
+  # DogeClaw agent — auto-starts when the "full" profile is active.
+  # Source: github.com/ashrafbeshtawi/dogeclaw. Gated alongside its migrations
+  # so lite-mode deployments skip both.
   dogeclaw:
     image: ghcr.io/ashrafbeshtawi/dogeclaw:latest
     container_name: dogeclaw
+    profiles: ["full"]
     environment:
       - DOGECLAW_OLLAMA_URL=${DOGECLAW_OLLAMA_URL:-http://ollama:11434}
       - DOGECLAW_PORT=${DOGECLAW_PORT:-3000}
