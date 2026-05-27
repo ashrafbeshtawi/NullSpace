@@ -150,10 +150,12 @@ services:
     # Mounting docker.sock + the repo gives the admin page enough access to
     # run the maintenance scripts in ./bin/ (deploy, backup, renew-certs).
     # Effectively root-on-host, so this service stays behind basic auth in
-    # prod (see docker-compose.prod.yml).
+    # prod (see docker-compose.prod.yml). The /var/backups bind mount lets
+    # backup-postgres.sh write dumps to the host's standard backup location.
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - .:/opt/NullSpace
+      - /var/backups/nullspace:/var/backups/nullspace
     labels:
       - "traefik.enable=true"
       - "traefik.http.services.admin.loadbalancer.server.port=80"

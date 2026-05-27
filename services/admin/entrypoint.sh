@@ -28,4 +28,11 @@ if [ -S /var/run/docker.sock ]; then
   usermod -aG "$GROUP_NAME" www-data
 fi
 
+# Ensure backup dir is writable by www-data. This is a bind-mount of the
+# host's /var/backups/nullspace, so the chown propagates to the host inode.
+# Root on the host can still write either way (root bypasses perms).
+if [ -d /var/backups/nullspace ]; then
+  chown www-data:www-data /var/backups/nullspace || true
+fi
+
 exec apache2-foreground
