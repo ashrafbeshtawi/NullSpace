@@ -175,6 +175,11 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - .:/opt/NullSpace
       - /var/backups/nullspace:/var/backups/nullspace
+      # Read-only access to the host's /proc and /sys so the dashboard can
+      # report real host CPU/RAM. On macOS Docker Desktop these resolve to
+      # the Linux VM (not the Mac), so dev values are the VM's, not the host's.
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
     labels:
       - "traefik.enable=true"
       - "traefik.http.services.admin.loadbalancer.server.port=80"

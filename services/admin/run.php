@@ -13,6 +13,7 @@ $ALLOWED = [
     'deploy'          => '/opt/NullSpace/bin/deploy.sh',
     'backup-postgres' => '/opt/NullSpace/bin/backup-postgres.sh',
     'renew-certs'     => '/opt/NullSpace/bin/renew-certs.sh',
+    'cleanup'         => '/opt/NullSpace/bin/cleanup.sh',
 ];
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
