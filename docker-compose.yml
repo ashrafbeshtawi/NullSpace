@@ -76,6 +76,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
     networks:
       - internal
     restart: "no"
@@ -93,6 +95,23 @@ services:
       - "traefik.http.services.portainer.loadbalancer.server.port=9000"
     networks:
       - public-web
+
+  # Watchtower — auto-updates containers labelled
+  # `com.centurylinklabs.watchtower.enable=true`. Polls every hour and prunes
+  # the old image after a successful update. Honors the `depends-on` label so
+  # dogeclaw-migrations is rolled before the dogeclaw agent itself.
+  watchtower:
+    image: containrrr/watchtower
+    container_name: watchtower
+    command:
+      - --label-enable
+      - --interval=3600
+      - --cleanup
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+    networks:
+      - internal
 
   uptime-kuma:
     image: louislam/uptime-kuma:1
@@ -203,6 +222,8 @@ services:
       - "traefik.enable=true"
       - "traefik.http.services.dogeclaw.loadbalancer.server.port=3000"
       - "traefik.docker.network=nullspace_public-web"
+      - "com.centurylinklabs.watchtower.enable=true"
+      - "com.centurylinklabs.watchtower.depends-on=dogeclaw-migrations"
     networks:
       - public-web
       - internal
@@ -215,6 +236,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.services.kiwelt.loadbalancer.server.port=3000"
+      - "com.centurylinklabs.watchtower.enable=true"
     networks:
       - public-web
 
