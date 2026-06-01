@@ -4,6 +4,95 @@ if (empty($_SESSION['csrf'])) {
     $_SESSION['csrf'] = bin2hex(random_bytes(32));
 }
 $csrf = $_SESSION['csrf'];
+
+// Host stats. Disk comes from a bind-mounted host path (statfs returns the
+// host filesystem). CPU + RAM read from /host/proc (read-only bind of /proc).
+// All readers return null on failure so the UI can render "N/A" instead of
+// crashing when run outside the expected container layout.
+
+function host_disk_stats($path = '/opt/NullSpace') {
+    $total = @disk_total_space($path);
+    $free  = @disk_free_space($path);
+    if ($total === false || $free === false || $total <= 0) return null;
+    $used = $total - $free;
+    return [
+        'used'  => $used,
+        'total' => $total,
+        'pct'   => round(($used / $total) * 100, 1),
+    ];
+}
+
+function host_memory_stats() {
+    $meminfo = @file_get_contents('/host/proc/meminfo');
+    if ($meminfo === false) return null;
+    if (!preg_match('/MemTotal:\s+(\d+)/',     $meminfo, $t)) return null;
+    if (!preg_match('/MemAvailable:\s+(\d+)/', $meminfo, $a)) return null;
+    $total = ((int) $t[1]) * 1024; // kB -> bytes
+    $avail = ((int) $a[1]) * 1024;
+    $used  = $total - $avail;
+    if ($total <= 0) return null;
+    return [
+        'used'  => $used,
+        'total' => $total,
+        'pct'   => round(($used / $total) * 100, 1),
+    ];
+}
+
+function read_cpu_stat() {
+    $raw = @file_get_contents('/host/proc/stat');
+    if ($raw === false) return null;
+    if (!preg_match('/^cpu\s+(.+)/', $raw, $m)) return null;
+    $vals = array_map('intval', preg_split('/\s+/', trim($m[1])));
+    // user, nice, system, idle, iowait, irq, softirq, steal, guest, guest_nice
+    $idle  = ($vals[3] ?? 0) + ($vals[4] ?? 0);
+    $total = array_sum($vals);
+    return ['idle' => $idle, 'total' => $total];
+}
+
+function host_cpu_stats() {
+    $a = read_cpu_stat();
+    if ($a === null) return null;
+    usleep(100000); // 100ms sample window
+    $b = read_cpu_stat();
+    if ($b === null) return null;
+    $idle_diff  = $b['idle']  - $a['idle'];
+    $total_diff = $b['total'] - $a['total'];
+    if ($total_diff <= 0) return ['pct' => 0.0, 'cores' => host_cpu_cores()];
+    $pct = (1 - $idle_diff / $total_diff) * 100;
+    return [
+        'pct'   => round(max(0, min(100, $pct)), 1),
+        'cores' => host_cpu_cores(),
+    ];
+}
+
+function host_cpu_cores() {
+    $raw = @file_get_contents('/host/proc/cpuinfo');
+    if ($raw === false) return null;
+    return preg_match_all('/^processor\s*:/m', $raw);
+}
+
+function format_bytes($bytes) {
+    $units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    $i = 0;
+    while ($bytes >= 1024 && $i < count($units) - 1) {
+        $bytes /= 1024;
+        $i++;
+    }
+    return round($bytes, 1) . ' ' . $units[$i];
+}
+
+function pct_tone($pct) {
+    if ($pct === null) return 'low';
+    if ($pct < 60) return 'low';
+    if ($pct < 85) return 'mid';
+    return 'high';
+}
+
+$stats = [
+    'disk'   => host_disk_stats(),
+    'memory' => host_memory_stats(),
+    'cpu'    => host_cpu_stats(),
+];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -130,6 +219,55 @@ $csrf = $_SESSION['csrf'];
             text-overflow: ellipsis;
         }
 
+        .stats {
+            width: 100%;
+            max-width: 1100px;
+            margin: 0 auto 2.5rem;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.75rem;
+        }
+        .stat-card {
+            background: #0c0c14;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 14px;
+            padding: 1rem 1.25rem;
+        }
+        .stat-label {
+            font-size: 0.6rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: #475569;
+        }
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #e2e8f0;
+            margin: 0.35rem 0 0.5rem;
+            font-variant-numeric: tabular-nums;
+        }
+        .stat-bar {
+            background: rgba(255, 255, 255, 0.05);
+            height: 6px;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .stat-bar-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.3s ease;
+        }
+        .stat-bar-fill.low  { background: #34d399; }
+        .stat-bar-fill.mid  { background: #facc15; }
+        .stat-bar-fill.high { background: #f87171; }
+        .stat-sub {
+            font-size: 0.7rem;
+            color: #475569;
+            margin-top: 0.5rem;
+            font-variant-numeric: tabular-nums;
+        }
+
         .operations {
             width: 100%;
             max-width: 1100px;
@@ -138,7 +276,7 @@ $csrf = $_SESSION['csrf'];
         .operations .section-title { margin-bottom: 0.75rem; }
         .ops-grid {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(2, 1fr);
             gap: 0.6rem;
         }
         .ops-btn {
@@ -175,6 +313,7 @@ $csrf = $_SESSION['csrf'];
         @media (max-width: 700px) {
             .dashboard { grid-template-columns: 1fr; gap: 1rem; }
             .ops-grid { grid-template-columns: 1fr; }
+            .stats { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -211,6 +350,38 @@ $csrf = $_SESSION['csrf'];
         <p>Service dashboard</p>
     </div>
 
+    <div class="stats">
+        <?php
+        $stat_views = [
+            ['key' => 'disk',   'label' => 'Disk'],
+            ['key' => 'memory', 'label' => 'Memory'],
+            ['key' => 'cpu',    'label' => 'CPU'],
+        ];
+        foreach ($stat_views as $sv):
+            $s = $stats[$sv['key']];
+            $pct = $s['pct'] ?? null;
+            $tone = pct_tone($pct);
+            if ($sv['key'] === 'cpu') {
+                $sub = $s && isset($s['cores']) ? $s['cores'] . ' cores' : '';
+            } elseif ($s) {
+                $sub = format_bytes($s['used']) . ' / ' . format_bytes($s['total']);
+            } else {
+                $sub = '';
+            }
+        ?>
+        <div class="stat-card">
+            <div class="stat-label"><?= htmlspecialchars($sv['label']) ?></div>
+            <div class="stat-value"><?= $pct === null ? 'N/A' : $pct . '%' ?></div>
+            <div class="stat-bar">
+                <div class="stat-bar-fill <?= $tone ?>" style="width: <?= $pct === null ? 0 : $pct ?>%"></div>
+            </div>
+            <?php if ($sub): ?>
+            <div class="stat-sub"><?= htmlspecialchars($sub) ?></div>
+            <?php endif; ?>
+        </div>
+        <?php endforeach; ?>
+    </div>
+
     <div class="dashboard">
         <?php foreach ($sections as $title => $services): ?>
         <div class="section">
@@ -237,6 +408,7 @@ $csrf = $_SESSION['csrf'];
         ['action' => 'deploy',          'name' => 'Deploy',          'desc' => 'git pull + docker compose pull + up -d', 'icon' => '&#9889;'],
         ['action' => 'backup-postgres', 'name' => 'Backup Postgres', 'desc' => 'pg_dumpall to /var/backups/nullspace',    'icon' => '&#128190;'],
         ['action' => 'renew-certs',     'name' => 'Renew Certs',     'desc' => 'Restart traefik to retry Let\'s Encrypt', 'icon' => '&#128274;'],
+        ['action' => 'cleanup',         'name' => 'Cleanup',         'desc' => 'Prune unused images and build cache',     'icon' => '&#129529;'],
     ];
     ?>
     <div class="operations">
