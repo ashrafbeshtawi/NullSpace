@@ -238,6 +238,16 @@ services:
     container_name: kiwelt
     environment:
       - DOMAIN=${DOMAIN}
+      # SMTP transport — pulled from .env on the host; overridden in dev to
+      # point at the local mailpit container (see docker-compose.override.yml).
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-}
+      - SMTP_SECURE=${SMTP_SECURE:-}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASS=${SMTP_PASS:-}
+      - MAIL_FROM=${MAIL_FROM:-}
+      - MAIL_TO_CONTACT=${MAIL_TO_CONTACT:-}
+      - MAIL_TO_KARRIERE=${MAIL_TO_KARRIERE:-}
     labels:
       - "traefik.enable=true"
       - "traefik.http.services.kiwelt.loadbalancer.server.port=3000"
