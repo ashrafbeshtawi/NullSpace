@@ -68,3 +68,21 @@ services:
       - "traefik.http.routers.kiwelt.rule=Host(`localhost`)"
       - "traefik.http.routers.kiwelt.entrypoints=web"
       - "traefik.http.services.kiwelt.loadbalancer.server.port=3000"
+
+  # Mailpit — local SMTP catcher for dev. Forms posted to kiwelt land here
+  # instead of going out to a real provider.
+  #   Web UI:  http://localhost:8025
+  #   SMTP:    mail:1025 (from inside the network)  /  localhost:1025 (host)
+  mail:
+    image: axllent/mailpit:latest
+    container_name: mail
+    restart: unless-stopped
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+    environment:
+      MP_MAX_MESSAGES: "500"
+      MP_SMTP_AUTH_ACCEPT_ANY: "1"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "1"
+    networks:
+      - public-web
