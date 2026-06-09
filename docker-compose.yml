@@ -85,14 +85,13 @@ services:
 
   # Watchtower — auto-updates containers labelled
   # `com.centurylinklabs.watchtower.enable=true`. Polls every hour and prunes
-  # the old image after a successful update. Honors the `depends-on` label so
-  # dogeclaw-migrations is rolled before the dogeclaw agent itself.
+  # the old image after a successful update.
   watchtower:
     image: containrrr/watchtower
     container_name: watchtower
     command:
       - --label-enable
-      - --interval=3600
+      - --interval=60
       - --cleanup
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
