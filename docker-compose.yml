@@ -22,7 +22,6 @@ services:
       - POSTGRES_DB=${POSTGRES_DB}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./scripts/init-databases.sql:/docker-entrypoint-initdb.d/init-databases.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
       interval: 5s
@@ -31,6 +30,37 @@ services:
     networks:
       - internal
 
+  # Cluster-level bootstrap. Runs idempotent SQL (scripts/cluster-init.sql)
+  # on every `docker compose up`, so adding a new database or role to the
+  # cluster is just "edit the SQL, redeploy". Replaces the previous
+  # docker-entrypoint-initdb.d bind mount, which only fired on first volume
+  # init.
+  postgres-init:
+    image: postgres:16-alpine
+    container_name: postgres-init
+    environment:
+      - PGPASSWORD=${POSTGRES_PASSWORD}
+    command:
+      - psql
+      - -h
+      - postgres
+      - -U
+      - ${POSTGRES_USER}
+      - -d
+      - postgres
+      - -v
+      - ON_ERROR_STOP=1
+      - -f
+      - /cluster-init.sql
+    volumes:
+      - ./scripts/cluster-init.sql:/cluster-init.sql:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - internal
+    restart: "no"
+
   redis:
     image: redis:7-alpine
     container_name: redis
@@ -38,49 +68,6 @@ services:
       - redis_data:/data
     networks:
       - internal
-
-  # --- DB Migrations (one-shot, per-service) ---
-
-  # Platform-level migrations (cluster setup beyond what init-databases.sql does).
-  # No SQL files yet; kept ready for future cross-service schema/grants.
-  migrations:
-    image: flyway/flyway:11-alpine
-    container_name: migrations
-    command:
-      - -url=jdbc:postgresql://postgres:5432/${POSTGRES_DB:-nullspace}
-      - -user=${POSTGRES_USER:-nullspace}
-      - -password=${POSTGRES_PASSWORD:-changeme}
-      - -connectRetries=10
-      - -baselineOnMigrate=true
-      - migrate
-    volumes:
-      - ./services/migrations/sql:/flyway/sql:ro
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - internal
-    restart: "no"
-
-  # DogeClaw migrations (Flyway with the agent's schema baked in).
-  # Source lives at github.com/ashrafbeshtawi/dogeclaw — pinned to a major.minor
-  # tag so patches roll in automatically while breaking changes need an explicit bump.
-  dogeclaw-migrations:
-    image: ghcr.io/ashrafbeshtawi/dogeclaw-migrations:latest
-    container_name: dogeclaw-migrations
-    profiles: ["full"]
-    environment:
-      - FLYWAY_URL=jdbc:postgresql://postgres:5432/${POSTGRES_DB:-nullspace}
-      - FLYWAY_USER=${POSTGRES_USER:-nullspace}
-      - FLYWAY_PASSWORD=${POSTGRES_PASSWORD:-changeme}
-    depends_on:
-      postgres:
-        condition: service_healthy
-    labels:
-      - "com.centurylinklabs.watchtower.enable=true"
-    networks:
-      - internal
-    restart: "no"
 
   # --- Utility Services ---
 
@@ -138,6 +125,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      postgres-init:
+        condition: service_completed_successfully
     labels:
       - "traefik.enable=true"
       - "traefik.http.services.glitchtip.loadbalancer.server.port=8000"
@@ -202,8 +191,9 @@ services:
       - internal
 
   # DogeClaw agent — auto-starts when the "full" profile is active.
-  # Source: github.com/ashrafbeshtawi/dogeclaw. Gated alongside its migrations
-  # so lite-mode deployments skip both.
+  # Source: github.com/ashrafbeshtawi/dogeclaw. Connects to the dedicated
+  # `dogeclaw` database (provisioned by postgres-init) using the cluster's
+  # main POSTGRES_USER credentials.
   dogeclaw:
     image: ghcr.io/ashrafbeshtawi/dogeclaw:latest
     container_name: dogeclaw
@@ -214,21 +204,23 @@ services:
       - DOGECLAW_WEB_USER=${DOGECLAW_WEB_USER:-admin}
       - DOGECLAW_WEB_PASSWORD=${DOGECLAW_WEB_PASSWORD:-changeme}
       - DOGECLAW_WEB_SECRET=${DOGECLAW_WEB_SECRET:-dogeclaw-change-me}
-      - DOGECLAW_ADMIN_DATABASE_URL=${DOGECLAW_ADMIN_DATABASE_URL:-}
-      - DOGECLAW_DATABASE_URL=${DOGECLAW_DATABASE_URL:-}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=dogeclaw
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
       - DOGECLAW_TELEGRAM_MODE=${DOGECLAW_TELEGRAM_MODE:-polling}
       - DOGECLAW_WEBHOOK_URL=${DOGECLAW_WEBHOOK_URL:-}
     volumes:
       - agent_workspace:/root/agent-workspace
     depends_on:
-      dogeclaw-migrations:
+      postgres-init:
         condition: service_completed_successfully
     labels:
       - "traefik.enable=true"
       - "traefik.http.services.dogeclaw.loadbalancer.server.port=3000"
       - "traefik.docker.network=nullspace_public-web"
       - "com.centurylinklabs.watchtower.enable=true"
-      - "com.centurylinklabs.watchtower.depends-on=dogeclaw-migrations"
     networks:
       - public-web
       - internal
