@@ -50,10 +50,6 @@ services:
       - postgres
       - -v
       - ON_ERROR_STOP=1
-      - -v
-      - admin_pw=${DOGECLAW_DB_ADMIN_PASSWORD:-changeme}
-      - -v
-      - agent_pw=${DOGECLAW_DB_AGENT_PASSWORD:-changeme}
       - -f
       - /cluster-init.sql
     volumes:
@@ -195,10 +191,9 @@ services:
       - internal
 
   # DogeClaw agent — auto-starts when the "full" profile is active.
-  # Source: github.com/ashrafbeshtawi/dogeclaw. Connects to its own
-  # `dogeclaw` database with two roles: dogeclaw_admin (migrations + web
-  # UI CRUD) and dogeclaw_agent (runtime queries). Both URLs come from
-  # the host .env; the database + roles are provisioned by postgres-init.
+  # Source: github.com/ashrafbeshtawi/dogeclaw. Connects to the dedicated
+  # `dogeclaw` database (provisioned by postgres-init) using the cluster's
+  # main POSTGRES_USER credentials.
   dogeclaw:
     image: ghcr.io/ashrafbeshtawi/dogeclaw:latest
     container_name: dogeclaw
@@ -209,8 +204,10 @@ services:
       - DOGECLAW_WEB_USER=${DOGECLAW_WEB_USER:-admin}
       - DOGECLAW_WEB_PASSWORD=${DOGECLAW_WEB_PASSWORD:-changeme}
       - DOGECLAW_WEB_SECRET=${DOGECLAW_WEB_SECRET:-dogeclaw-change-me}
-      - DOGECLAW_ADMIN_DATABASE_URL=${DOGECLAW_ADMIN_DATABASE_URL:-}
-      - DOGECLAW_DATABASE_URL=${DOGECLAW_DATABASE_URL:-}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=dogeclaw
+      - POSTGRES_HOST_PORT=postgres:5432
       - DOGECLAW_TELEGRAM_MODE=${DOGECLAW_TELEGRAM_MODE:-polling}
       - DOGECLAW_WEBHOOK_URL=${DOGECLAW_WEBHOOK_URL:-}
     volumes:
