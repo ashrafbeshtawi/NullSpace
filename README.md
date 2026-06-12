@@ -228,23 +228,110 @@ DogeClaw upgrades happen by bumping the image tag in `docker-compose.yml` (e.g. 
 
 Ollama is not redeployed automatically — start it manually on the VPS when needed.
 
+## Backups
+
+Two-layer strategy: nightly local dumps + encrypted off-site copies to Backblaze B2.
+
+### What gets backed up
+
+- **PostgreSQL** — every database (`nullspace`, `glitchtip`, `dogeclaw`, …) via `pg_dumpall`
+- **`/opt/NullSpace/.env`** — host-only secrets not in the repo
+- **Named volumes**: `agent_workspace`, `uptime_kuma_data`, `letsencrypt`
+
+Explicitly **not** backed up — recoverable by other means:
+- `postgres_data` (covered by the pg dump above)
+- `ollama_data` (re-pull models via `ollama pull`)
+- `redis_data` (cache)
+- `portainer_data` (reconfigure in minutes)
+- Source code / container images (already on GitHub / GHCR)
+
+### Layer 1 — local dumps
+
+`bin/backup-postgres.sh` runs `pg_dumpall` against the running postgres container and writes `/var/backups/nullspace/pg-YYYY-MM-DD.sql.gz`. Retention: 14 days local (`find -mtime +14 -delete`).
+
+### Layer 2 — off-site to Backblaze B2 (via restic)
+
+`bin/backup-offsite.sh` calls the local script, tars the named volumes into a staging dir, and pushes everything to a [restic](https://restic.net/) repository on B2:
+
+- **Client-side encryption** with a key you control (`RESTIC_PASSWORD`). B2 only ever sees opaque ciphertext.
+- **Block-level deduplication** — day-2+ uploads are deltas, not full re-uploads.
+- **Snapshot retention** via `restic forget --keep-daily 14 --keep-weekly 4 --keep-monthly 6 --prune`.
+
+Credentials live in `/etc/nullspace-backup.env` (root, mode 600), separate from the project `.env` so they never leak into container env:
+
+```
+B2_ACCOUNT_ID=<keyID>
+B2_ACCOUNT_KEY=<applicationKey>
+RESTIC_REPOSITORY=b2:<bucket>
+RESTIC_PASSWORD=<encryption key — store in password manager>
+BACKUP_HEARTBEAT_URL=<optional Uptime Kuma push URL>
+```
+
+> ⚠ Lose `RESTIC_PASSWORD` and the backups are permanently unreadable — B2 cannot help. Keep a copy in a password manager off the VPS.
+
+### One-time setup on a fresh VPS
+
+```bash
+apt install -y restic
+sudo tee /etc/nullspace-backup.env >/dev/null <<EOF
+B2_ACCOUNT_ID="..."
+B2_ACCOUNT_KEY="..."
+RESTIC_REPOSITORY="b2:<bucket>"
+RESTIC_PASSWORD="<long-random>"
+EOF
+sudo chmod 600 /etc/nullspace-backup.env
+
+set -a; . /etc/nullspace-backup.env; set +a
+restic init
+
+# Schedule the daily run as root
+sudo crontab -e
+# add: 0 3 * * * /opt/NullSpace/bin/backup-offsite.sh >> /var/log/nullspace-backup.log 2>&1
+```
+
+### Restoring
+
+`bin/restore-offsite.sh` covers the common paths:
+
+```bash
+restore-offsite.sh list                # list snapshots
+restore-offsite.sh check               # verify repo integrity
+restore-offsite.sh env  <snap>         # restore .env only
+restore-offsite.sh pg   <snap>         # replay latest pg dump from snapshot
+restore-offsite.sh full <snap>         # stop stack → restore everything → bring back up
+```
+
+`<snap>` is a restic snapshot id or the literal `latest`. Destructive commands prompt before proceeding; set `NULLSPACE_RESTORE_YES=1` to skip prompts for unattended use.
+
+### Operational hygiene
+
+- **Quarterly restore drill** — restore `latest` to a scratch directory and `gunzip -t` the dump. A backup you've never restored is hope, not insurance.
+- **Heartbeat monitoring** — point an Uptime Kuma "Push" monitor at the `BACKUP_HEARTBEAT_URL`. If the daily run fails or the VPS is down, you find out within the hour instead of months later.
+- **Log rotation** — `/etc/logrotate.d/nullspace` rotates `/var/log/nullspace-*.log` weekly.
+
 ## Repo Layout
 
 ```
 NullSpace/
 ├── docker-compose.yml              # Base compose (all services)
 ├── docker-compose.prod.yml         # Prod overrides (HTTPS, basic auth, real domains)
-├── docker-compose.override.yml     # Dev overrides (HTTP, localhost domains)
+├── docker-compose.override.yml     # Dev overrides (HTTP, localhost domains, mailpit)
 ├── .env / .env.example             # Secrets and config
+├── bin/                            # VPS maintenance scripts (cron + admin panel buttons)
+│   ├── deploy.sh                   # git pull + docker compose pull + up -d
+│   ├── backup-postgres.sh          # daily pg_dumpall → /var/backups/nullspace
+│   ├── backup-offsite.sh           # daily push to restic repo on B2
+│   ├── restore-postgres.sh         # replay a local pg dump
+│   ├── restore-offsite.sh          # list / check / restore from the B2 repo
+│   ├── cleanup.sh                  # docker image + builder prune
+│   ├── renew-certs.sh              # nudge traefik to retry Let's Encrypt
+│   ├── shell.sh                    # docker compose exec wrapper
+│   └── fix-docker-api.sh           # one-shot Docker 26+ min-API-version workaround
 ├── scripts/
-│   └── init-databases.sql          # Postgres initial setup (creates extra DBs)
+│   └── cluster-init.sql            # Idempotent CREATE DATABASE statements run by postgres-init
 └── services/
-    ├── admin/                      # PHP dashboard linking all services
-    ├── default/                    # Main landing page
-    ├── ollama/                     # Ollama LLM container (manual start)
-    │   ├── Dockerfile
-    │   └── entrypoint.sh
-    └── migrations/sql/             # Platform-level Flyway migrations (empty for now)
+    ├── admin/                      # PHP dashboard + ops buttons (deploy / backup / etc.)
+    └── ollama/                     # Ollama LLM container (manual start)
 ```
 
 DogeClaw lives in its own repo — see [github.com/ashrafbeshtawi/dogeclaw](https://github.com/ashrafbeshtawi/dogeclaw).
