@@ -104,17 +104,21 @@ jobs:
           # Dev override binds Traefik on :8000 with *.localhost Host rules.
           # `--resolve` lets curl talk to 127.0.0.1 while sending the right
           # Host header without touching /etc/hosts.
+          #
+          # Accept only 2xx / 3xx. A 404 from Traefik means the Host rule
+          # didn't match (broken route) — exactly the regression this test
+          # exists to catch. 401s shouldn't appear because the dev override
+          # strips the auth middleware. If a service legitimately needs a
+          # 4xx allowed, add it as an explicit per-host exception below.
           set +e
           FAIL=0
           for HOST in localhost traefik.localhost admin.localhost status.localhost errors.localhost portainer.localhost dogeclaw.localhost; do
             CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 \
                        --resolve "${HOST}:8000:127.0.0.1" \
                        "http://${HOST}:8000/" )
-            # Accept any non-5xx — auth challenges, redirects, 404s all count
-            # as "the service is responding".
             case "$CODE" in
-              2*|3*|4*) echo "✓ $HOST → $CODE" ;;
-              *)        echo "✗ $HOST → $CODE (expected 2xx/3xx/4xx)"; FAIL=1 ;;
+              2*|3*) echo "✓ $HOST → $CODE" ;;
+              *)     echo "✗ $HOST → $CODE (expected 2xx/3xx)"; FAIL=1 ;;
             esac
           done
           exit $FAIL
