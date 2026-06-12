@@ -1,0 +1,147 @@
+name: E2E Stack Smoke Test
+
+# Catastrophic-failure guard. Brings the whole stack up against a clean
+# postgres volume and verifies:
+#   - compose config is valid
+#   - every container reaches a non-crashed state (Up, or Exited 0 for one-shots)
+#   - Traefik routes each public service to a non-5xx response
+#
+# Runs on PRs (so regressions are caught before merge) and on push to main
+# (final gate before the deploy workflow fires). HTTPS / Let's Encrypt /
+# basic auth are dev-mode bypassed via the auto-loaded override file —
+# we're testing service health, not the prod ingress story.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Seed .env from .env.example
+        run: cp .env.example .env
+
+      - name: Validate compose config
+        # Quick syntax + interpolation check before pulling anything heavy.
+        run: docker compose config --quiet
+
+      - name: Pull / build images
+        # Done separately from `up -d` so the timing of failures is clearer:
+        # a pull failure looks different from a startup failure.
+        run: docker compose pull --ignore-pull-failures
+        # `--ignore-pull-failures` lets locally-built services (admin, ollama)
+        # skip pulls without aborting the workflow.
+
+      - name: Bring the stack up
+        run: docker compose up -d --build
+
+      - name: Wait for postgres healthy
+        run: |
+          for i in $(seq 1 36); do
+            if docker compose exec -T postgres pg_isready -U nullspace >/dev/null 2>&1; then
+              echo "postgres ready after ${i} attempt(s)"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::postgres never became ready"
+          docker compose logs postgres
+          exit 1
+
+      - name: Wait for postgres-init to complete
+        run: |
+          # Bounded wait — postgres-init exits in <2s on a healthy cluster.
+          for i in $(seq 1 24); do
+            STATE=$(docker inspect -f '{{.State.Status}}' postgres-init 2>/dev/null || echo missing)
+            EXIT=$(docker inspect -f '{{.State.ExitCode}}' postgres-init 2>/dev/null || echo missing)
+            if [ "$STATE" = "exited" ]; then
+              if [ "$EXIT" = "0" ]; then
+                echo "postgres-init completed successfully"
+                exit 0
+              fi
+              echo "::error::postgres-init exited with code $EXIT"
+              docker logs postgres-init
+              exit 1
+            fi
+            sleep 5
+          done
+          echo "::error::postgres-init never completed"
+          docker logs postgres-init
+          exit 1
+
+      - name: Settle (give app services time to finish starting)
+        run: sleep 15
+
+      - name: Detect crashed services
+        run: |
+          docker compose ps -a
+          FAIL=0
+          for CID in $(docker compose ps -aq); do
+            NAME=$(docker inspect -f '{{.Name}}' "$CID" | sed 's|^/||')
+            STATE=$(docker inspect -f '{{.State.Status}}' "$CID")
+            EXIT=$(docker inspect -f '{{.State.ExitCode}}' "$CID")
+            if [ "$STATE" = "exited" ] && [ "$EXIT" != "0" ]; then
+              echo "::error::$NAME exited with code $EXIT"
+              echo "--- $NAME logs ---"
+              docker logs --tail 100 "$CID"
+              FAIL=1
+            elif [ "$STATE" = "dead" ] || [ "$STATE" = "restarting" ]; then
+              echo "::error::$NAME is in state $STATE"
+              docker logs --tail 100 "$CID"
+              FAIL=1
+            fi
+          done
+          exit $FAIL
+
+      - name: HTTP probe each public route via Traefik
+        run: |
+          # Dev override binds Traefik on :8000 with *.localhost Host rules.
+          # `--resolve` lets curl talk to 127.0.0.1 while sending the right
+          # Host header without touching /etc/hosts.
+          set +e
+          FAIL=0
+          for HOST in localhost traefik.localhost admin.localhost status.localhost errors.localhost portainer.localhost dogeclaw.localhost; do
+            CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 \
+                       --resolve "${HOST}:8000:127.0.0.1" \
+                       "http://${HOST}:8000/" )
+            # Accept any non-5xx — auth challenges, redirects, 404s all count
+            # as "the service is responding".
+            case "$CODE" in
+              2*|3*|4*) echo "✓ $HOST → $CODE" ;;
+              *)        echo "✗ $HOST → $CODE (expected 2xx/3xx/4xx)"; FAIL=1 ;;
+            esac
+          done
+          exit $FAIL
+
+      - name: Scan logs for fatal patterns (informational)
+        # Warn-only — false positives easy. Useful for spotting noisy
+        # startup errors that don't crash the container but signal trouble.
+        if: success() || failure()
+        run: |
+          PATTERNS='panic|FATAL|uncaught exception|cannot connect'
+          for SVC in $(docker compose ps --services); do
+            HITS=$(docker compose logs --no-color "$SVC" 2>&1 | grep -iE "$PATTERNS" | head -3 || true)
+            if [ -n "$HITS" ]; then
+              echo "::warning::$SVC has suspicious log lines:"
+              echo "$HITS"
+            fi
+          done
+
+      - name: Capture full stack state on failure
+        if: failure()
+        run: |
+          echo "=== docker compose ps -a ==="
+          docker compose ps -a
+          echo ""
+          echo "=== docker compose logs (last 200 lines) ==="
+          docker compose logs --no-color --tail 200
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v --remove-orphans
