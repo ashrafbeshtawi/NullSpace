@@ -41,11 +41,21 @@ services:
   uptime-kuma:
     labels:
       - "traefik.enable=true"
+      # Protected router for the UI — basic auth in front of everything by default.
       - "traefik.http.routers.uptime.rule=Host(`status.${DOMAIN}`)"
       - "traefik.http.routers.uptime.entrypoints=websecure"
       - "traefik.http.routers.uptime.tls.certresolver=letsencrypt"
       - "traefik.http.routers.uptime.middlewares=auth"
       - "traefik.http.services.uptime.loadbalancer.server.port=3001"
+      # Public router for the Push API only. Push URLs are token-bearing
+      # (the random suffix is the auth), so basic-auth in front of them
+      # would break heartbeat clients (e.g. bin/backup-offsite.sh).
+      # Higher priority so it always wins over the catch-all UI router.
+      - "traefik.http.routers.uptime-push.rule=Host(`status.${DOMAIN}`) && PathPrefix(`/api/push`)"
+      - "traefik.http.routers.uptime-push.entrypoints=websecure"
+      - "traefik.http.routers.uptime-push.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.uptime-push.service=uptime"
+      - "traefik.http.routers.uptime-push.priority=100"
 
   glitchtip:
     environment:
