@@ -13,11 +13,18 @@
 #   - restic in PATH (apt install restic)
 #   - docker (for the volume-tar step)
 #   - /etc/nullspace-backup.env (chmod 600 root:root) with:
-#       B2_ACCOUNT_ID=<keyID>
-#       B2_ACCOUNT_KEY=<applicationKey>
-#       RESTIC_REPOSITORY=b2:<bucket>:<path>
-#       RESTIC_PASSWORD=<encryption-key-store-in-pw-manager>
-#       BACKUP_HEARTBEAT_URL=<optional Uptime Kuma push URL>
+#       B2_ACCOUNT_ID="<keyID>"
+#       B2_ACCOUNT_KEY="<applicationKey>"
+#       RESTIC_REPOSITORY="b2:<bucket>:<path>"
+#       RESTIC_PASSWORD="<encryption-key-store-in-pw-manager>"
+#       BACKUP_HEARTBEAT_URL="<optional Uptime Kuma push URL>"
+#
+#     IMPORTANT: every value MUST be wrapped in double quotes. The script
+#     sources this file with `set -a; . file; set +a`, and bash treats `&`
+#     in unquoted values as a control operator — silently truncating
+#     URLs (and any value containing &) to the part before the first `&`.
+#     This bit us once on the heartbeat URL (issue #13).
+#
 #   - One-time `restic init` against that repo before the first run.
 #
 # Intended as a daily cron job:
@@ -82,8 +89,16 @@ restic forget \
     --prune
 
 # Optional liveness ping for an Uptime Kuma Push monitor. Skipped if unset.
+# Capture the HTTP code so failures aren't silent — backup itself still
+# succeeds either way, but we want trouble visible in the log.
 if [ -n "${BACKUP_HEARTBEAT_URL:-}" ]; then
-    curl -fsS --max-time 10 "$BACKUP_HEARTBEAT_URL" >/dev/null || true
+    HEARTBEAT_CODE=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 \
+                          "$BACKUP_HEARTBEAT_URL" 2>&1) \
+        || HEARTBEAT_CODE="curl-error: $HEARTBEAT_CODE"
+    case "$HEARTBEAT_CODE" in
+        200) echo "==> heartbeat ok" ;;
+        *)   echo "==> WARNING: heartbeat ping failed (got: $HEARTBEAT_CODE, url length: ${#BACKUP_HEARTBEAT_URL})" ;;
+    esac
 fi
 
 echo "==> $(date -Iseconds) — done"
