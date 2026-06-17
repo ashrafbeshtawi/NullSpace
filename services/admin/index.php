@@ -310,10 +310,55 @@ $stats = [
             margin-top: 0.1rem;
         }
 
+        .restore-danger {
+            background: rgba(248, 113, 113, 0.03);
+            border: 1px solid rgba(248, 113, 113, 0.12);
+            border-radius: 16px;
+            padding: 1.5rem;
+        }
+        .snapshot-row {
+            display: flex;
+            align-items: baseline;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        .snapshot-row label {
+            font-size: 0.65rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: #f87171;
+            flex-shrink: 0;
+        }
+        .snapshot-row input {
+            flex: 1;
+            background: #0c0c14;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            padding: 0.6rem 0.9rem;
+            color: #e2e8f0;
+            font: inherit;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.85rem;
+        }
+        .snapshot-row input:focus {
+            outline: none;
+            border-color: rgba(248, 113, 113, 0.4);
+        }
+        .restore-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.6rem;
+        }
+        .ops-btn-danger { border-color: rgba(248, 113, 113, 0.18); }
+        .ops-btn-danger:hover { border-color: rgba(248, 113, 113, 0.35); }
+
         @media (max-width: 700px) {
             .dashboard { grid-template-columns: 1fr; gap: 1rem; }
             .ops-grid { grid-template-columns: 1fr; }
             .stats { grid-template-columns: 1fr; }
+            .restore-grid { grid-template-columns: 1fr; }
+            .snapshot-row { flex-direction: column; align-items: stretch; gap: 0.5rem; }
         }
     </style>
 </head>
@@ -428,6 +473,66 @@ $stats = [
             </form>
             <?php endforeach; ?>
         </div>
+    </div>
+
+    <?php
+    $restore_readonly = [
+        ['action' => 'restore-list',  'name' => 'List Snapshots', 'desc' => 'restic snapshots — browse the off-site repo',  'icon' => '&#128203;'],
+        ['action' => 'restore-check', 'name' => 'Check Repo',     'desc' => 'restic check — verify repo integrity',          'icon' => '&#9989;'],
+    ];
+    $restore_destructive = [
+        ['action' => 'restore-env',  'name' => 'Restore .env',  'desc' => 'replace /opt/NullSpace/.env from snapshot',                'icon' => '&#128272;'],
+        ['action' => 'restore-pg',   'name' => 'Restore PG',    'desc' => 'replay latest pg dump from snapshot',                       'icon' => '&#128190;'],
+        ['action' => 'restore-full', 'name' => 'Full Restore',  'desc' => 'STOP stack, restore .env + volumes + pg, bring back up',    'icon' => '&#9888;'],
+    ];
+    ?>
+    <div class="operations">
+        <div class="section-title">Backup Restore — read-only</div>
+        <div class="ops-grid">
+            <?php foreach ($restore_readonly as $op): ?>
+            <form method="POST" action="/run.php" target="_blank" class="ops-form">
+                <input type="hidden" name="csrf" value="<?= htmlspecialchars($csrf) ?>">
+                <input type="hidden" name="action" value="<?= htmlspecialchars($op['action']) ?>">
+                <button type="submit" class="ops-btn">
+                    <div class="icon"><?= $op['icon'] ?></div>
+                    <div class="card-info">
+                        <div class="ops-btn-name"><?= htmlspecialchars($op['name']) ?></div>
+                        <div class="ops-btn-desc"><?= htmlspecialchars($op['desc']) ?></div>
+                    </div>
+                </button>
+            </form>
+            <?php endforeach; ?>
+        </div>
+    </div>
+
+    <div class="operations">
+        <div class="section-title">Backup Restore — destructive</div>
+        <form method="POST" action="/run.php" target="_blank" class="restore-danger ops-form">
+            <input type="hidden" name="csrf" value="<?= htmlspecialchars($csrf) ?>">
+            <div class="snapshot-row">
+                <label for="snapshot-id">Snapshot</label>
+                <input type="text" id="snapshot-id" name="snapshot"
+                       placeholder="latest or hex id (e.g. ab12cd34)"
+                       pattern="^(latest|[a-fA-F0-9]{4,64})$"
+                       title="Either &quot;latest&quot; or a hex snapshot id"
+                       required>
+            </div>
+            <div class="restore-grid">
+                <?php foreach ($restore_destructive as $op):
+                    $confirm = $op['name'] . ': destructive — modifies host state on the VPS. Continue?';
+                ?>
+                <button type="submit" name="action" value="<?= htmlspecialchars($op['action']) ?>"
+                        class="ops-btn ops-btn-danger"
+                        onclick="return confirm('<?= htmlspecialchars($confirm, ENT_QUOTES) ?>')">
+                    <div class="icon"><?= $op['icon'] ?></div>
+                    <div class="card-info">
+                        <div class="ops-btn-name"><?= htmlspecialchars($op['name']) ?></div>
+                        <div class="ops-btn-desc"><?= htmlspecialchars($op['desc']) ?></div>
+                    </div>
+                </button>
+                <?php endforeach; ?>
+            </div>
+        </form>
     </div>
 </body>
 </html>
