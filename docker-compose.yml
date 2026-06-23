@@ -237,6 +237,11 @@ services:
       - ADMIN_USERNAME=${TELEBOT_ADMIN_USERNAME:-admin}
       - ADMIN_PASSWORD=${TELEBOT_ADMIN_PASSWORD:-changeme}
       - SESSION_SECRET=${TELEBOT_SESSION_SECRET:-telebot-change-me}
+      # Auto-match scheduler — pairs queued users on a cron. Defaults are
+      # the bot's own defaults; override in .env to disable or retune.
+      - AUTO_MATCH_ENABLED=${AUTO_MATCH_ENABLED:-true}
+      - AUTO_MATCH_CRON=${AUTO_MATCH_CRON:-* * * * *}
+      - AUTO_MATCH_MIN_WAIT=${AUTO_MATCH_MIN_WAIT:-30}
     depends_on:
       postgres-init:
         condition: service_completed_successfully
