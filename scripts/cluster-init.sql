@@ -12,3 +12,6 @@ WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'glitchtip')\gexec
 
 SELECT 'CREATE DATABASE dogeclaw'
 WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'dogeclaw')\gexec
+
+SELECT 'CREATE DATABASE telebot'
+WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'telebot')\gexec
