@@ -76,6 +76,19 @@ services:
     environment:
       - ADMIN_SCHEME=https
       - ADMIN_DOMAIN=${DOMAIN}
+    # Read-only access to the off-site backup credentials so the admin
+    # panel's Backup Restore buttons can run bin/backup-offsite.sh and
+    # bin/restore-offsite.sh — those scripts source /etc/nullspace-backup.env.
+    # create_host_path: false makes the container fail to start (loudly)
+    # if the file is missing on the VPS, rather than silently creating an
+    # empty directory at that path.
+    volumes:
+      - type: bind
+        source: /etc/nullspace-backup.env
+        target: /etc/nullspace-backup.env
+        read_only: true
+        bind:
+          create_host_path: false
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.admin.rule=Host(`admin.${DOMAIN}`)"

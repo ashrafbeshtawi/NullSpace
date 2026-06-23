@@ -35,4 +35,14 @@ if [ -d /var/backups/nullspace ]; then
   chown www-data:www-data /var/backups/nullspace || true
 fi
 
+# Ensure /etc/nullspace-backup.env (bind-mounted from host in prod) is
+# readable by www-data so bin/backup-offsite.sh and bin/restore-offsite.sh
+# can be triggered from the admin panel. We only loosen group + mode —
+# owner stays root, world has no access. Changes propagate to the host
+# via the bind mount, so root over SSH keeps full read/write.
+if [ -f /etc/nullspace-backup.env ]; then
+  chgrp www-data /etc/nullspace-backup.env || true
+  chmod 640 /etc/nullspace-backup.env || true
+fi
+
 exec apache2-foreground

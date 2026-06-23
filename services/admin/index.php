@@ -371,8 +371,9 @@ $stats = [
 
     $sections = [
         'Applications' => [
-            ['name' => 'Main Site', 'sub' => '', 'desc' => 'Landing page', 'type' => 'app', 'icon' => '&#9670;'],
-            ['name' => 'DogeClaw', 'sub' => 'dogeclaw.', 'desc' => 'AI agent', 'type' => 'app', 'icon' => '&#128054;'],
+            ['name' => 'Main Site', 'sub' => '',          'desc' => 'Landing page',         'type' => 'app', 'icon' => '&#9670;'],
+            ['name' => 'DogeClaw',  'sub' => 'dogeclaw.', 'desc' => 'AI agent',             'type' => 'app', 'icon' => '&#128054;'],
+            ['name' => 'TeleBot',   'sub' => 'bot.',      'desc' => 'Anonymous chat bot',   'type' => 'app', 'icon' => '&#128172;'],
         ],
         'Infrastructure' => [
             ['name' => 'Traefik', 'sub' => 'traefik.', 'desc' => 'Reverse proxy', 'type' => 'infra', 'icon' => '&#9881;'],
