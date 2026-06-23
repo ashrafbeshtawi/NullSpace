@@ -224,6 +224,31 @@ services:
       - public-web
       - internal
 
+  # Telebot — anonymous chat Telegram bot (Next.js).
+  # Source: github.com/ashrafbeshtawi/telebot. Connects to its own `telebot`
+  # database (provisioned by postgres-init); container entrypoint runs
+  # `prisma migrate deploy` on startup. Bot token + webhook URL + AI
+  # provider are set at runtime via the admin panel and stored in the DB.
+  telebot:
+    image: ghcr.io/ashrafbeshtawi/telebot:latest
+    container_name: telebot
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/telebot?schema=public
+      - ADMIN_USERNAME=${TELEBOT_ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${TELEBOT_ADMIN_PASSWORD:-changeme}
+      - SESSION_SECRET=${TELEBOT_SESSION_SECRET:-telebot-change-me}
+    depends_on:
+      postgres-init:
+        condition: service_completed_successfully
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.services.telebot.loadbalancer.server.port=3000"
+      - "traefik.docker.network=nullspace_public-web"
+      - "com.centurylinklabs.watchtower.enable=true"
+    networks:
+      - public-web
+      - internal
+
   kiwelt:
     image: ghcr.io/ashrafbeshtawi/kiwelt:latest
     container_name: kiwelt

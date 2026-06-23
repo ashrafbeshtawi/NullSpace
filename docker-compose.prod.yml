@@ -94,6 +94,26 @@ services:
       - "traefik.http.routers.dogeclaw.tls.certresolver=letsencrypt"
       - "traefik.http.services.dogeclaw.loadbalancer.server.port=3000"
 
+  telebot:
+    labels:
+      - "traefik.enable=true"
+      # Protected router for the homepage + /admin (basic auth in front).
+      - "traefik.http.routers.telebot.rule=Host(`bot.${DOMAIN}`)"
+      - "traefik.http.routers.telebot.entrypoints=websecure"
+      - "traefik.http.routers.telebot.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.telebot.middlewares=auth"
+      - "traefik.http.services.telebot.loadbalancer.server.port=3000"
+      # Public router for /api/webhook + /api/auto-match. Telegram cannot
+      # send basic-auth credentials with webhook deliveries, and the
+      # auto-match endpoint authenticates via its own x-auto-match-secret
+      # header. Higher priority so it always wins over the catch-all
+      # protected router for matching paths.
+      - "traefik.http.routers.telebot-public.rule=Host(`bot.${DOMAIN}`) && (PathPrefix(`/api/webhook`) || PathPrefix(`/api/auto-match`))"
+      - "traefik.http.routers.telebot-public.entrypoints=websecure"
+      - "traefik.http.routers.telebot-public.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.telebot-public.service=telebot"
+      - "traefik.http.routers.telebot-public.priority=100"
+
   kiwelt:
     labels:
       - "traefik.enable=true"

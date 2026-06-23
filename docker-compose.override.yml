@@ -69,6 +69,13 @@ services:
       - "traefik.http.routers.kiwelt.entrypoints=web"
       - "traefik.http.services.kiwelt.loadbalancer.server.port=3000"
 
+  telebot:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.telebot.rule=Host(`bot.localhost`)"
+      - "traefik.http.routers.telebot.entrypoints=web"
+      - "traefik.http.services.telebot.loadbalancer.server.port=3000"
+
   # Mailpit — local SMTP catcher for dev. Forms posted to kiwelt land here
   # instead of going out to a real provider.
   #   Web UI:  http://localhost:8025
