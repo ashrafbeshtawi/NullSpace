@@ -39,12 +39,15 @@ services:
       - "traefik.http.services.portainer.loadbalancer.server.port=9000"
 
   dbgate:
+    # No `middlewares=auth` — DbGate handles its own login (DBGATE_LOGIN /
+    # DBGATE_PASSWORD env vars). Traefik basic auth was 401-ing the
+    # frontend's POST /config/* and Socket.IO requests because those XHRs
+    # don't carry basic credentials. Session cookies do.
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.dbgate.rule=Host(`db.${DOMAIN}`)"
       - "traefik.http.routers.dbgate.entrypoints=websecure"
       - "traefik.http.routers.dbgate.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.dbgate.middlewares=auth"
       - "traefik.http.services.dbgate.loadbalancer.server.port=3000"
 
   uptime-kuma:

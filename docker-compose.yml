@@ -114,6 +114,13 @@ services:
       - USER_pg=${POSTGRES_USER}
       - PASSWORD_pg=${POSTGRES_PASSWORD}
       - ENGINE_pg=postgres@dbgate-plugin-postgres
+      # DbGate's own login. Uses a session cookie which Same-Site-by-default
+      # browsers carry on every fetch — including the POST /config/* and
+      # WebSocket calls that Traefik basic auth was 401-ing in prod (the
+      # frontend doesn't attach basic credentials on those XHRs). Leave
+      # both empty in dev for anonymous access.
+      - LOGIN=${DBGATE_LOGIN:-}
+      - PASSWORD=${DBGATE_PASSWORD:-}
     volumes:
       - dbgate_data:/root/.dbgate
     depends_on:
