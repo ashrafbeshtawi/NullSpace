@@ -20,8 +20,6 @@ services:
       - "traefik.http.routers.traefik.tls.certresolver=letsencrypt"
       - "traefik.http.routers.traefik.service=api@internal"
       - "traefik.http.routers.traefik.middlewares=oauth-chain"
-      - "traefik.http.middlewares.auth.basicauth.users=${BASIC_AUTH_USERS}"
-      - "traefik.http.middlewares.auth.basicauth.removeheader=true"
     ports:
       - "80:80"
       - "443:443"
