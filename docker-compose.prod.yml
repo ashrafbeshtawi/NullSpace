@@ -43,7 +43,10 @@ services:
       - OAUTH2_PROXY_COOKIE_SECRET=${OAUTH_COOKIE_SECRET}
       # Cookie scoped to the whole domain so a single sign-in covers
       # every subdomain (admin, portainer, db, status, errors, ...).
-      - OAUTH2_PROXY_COOKIE_DOMAIN=.${DOMAIN}
+      # Note: env var is PLURAL (cookie-domains) — the singular form is
+      # silently ignored, which had the cookie defaulting to the request
+      # host only and breaking cross-subdomain SSO.
+      - OAUTH2_PROXY_COOKIE_DOMAINS=.${DOMAIN}
       - OAUTH2_PROXY_COOKIE_NAME=_nullspace_oauth
       - OAUTH2_PROXY_COOKIE_SECURE=true
       - OAUTH2_PROXY_WHITELIST_DOMAINS=.${DOMAIN}
