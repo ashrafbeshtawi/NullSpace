@@ -53,8 +53,8 @@ services:
       - OAUTH2_PROXY_AUTHENTICATED_EMAILS_FILE=/etc/oauth2-proxy/allowed-emails.txt
       - OAUTH2_PROXY_HTTP_ADDRESS=0.0.0.0:4180
       # see top-level `configs:` block below — the allowed-emails file is
-      # materialised from $OAUTH_ALLOWED_EMAILS in .env so the actual
-      # addresses never live in the git tree.
+      # materialised from $OAUTH_ALLOWED_EMAIL in .env so the actual
+      # address never lives in the git tree.
       - OAUTH2_PROXY_REVERSE_PROXY=true
       - OAUTH2_PROXY_REDIRECT_URL=https://auth.${DOMAIN}/oauth2/callback
       - OAUTH2_PROXY_SET_XAUTHREQUEST=true
@@ -215,14 +215,10 @@ services:
       - "traefik.http.middlewares.apex-to-www.redirectregex.replacement=https://www.${DOMAIN}/$${1}"
       - "traefik.http.middlewares.apex-to-www.redirectregex.permanent=true"
 
-# Inline-content config: the allowed-emails list that oauth2-proxy
-# consumes is materialised from $OAUTH_ALLOWED_EMAILS at compose time
-# and mounted read-only into the container, so the actual addresses
-# live only in the host's .env (already gitignored). One address per
-# line; multi-line .env values are quoted, e.g.
-#   OAUTH_ALLOWED_EMAILS="alice@example.com
-#   bob@example.com"
+# Inline-content config: the allowed-emails file that oauth2-proxy
+# consumes is materialised from $OAUTH_ALLOWED_EMAIL at compose time
+# and mounted read-only into the container, so the actual address
+# lives only in the host's .env (already gitignored). One address only.
 configs:
   oauth_allowed_emails:
-    content: |
-      ${OAUTH_ALLOWED_EMAILS:-}
+    content: ${OAUTH_ALLOWED_EMAIL:-}
