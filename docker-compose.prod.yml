@@ -38,6 +38,15 @@ services:
       - "traefik.http.routers.portainer.middlewares=auth"
       - "traefik.http.services.portainer.loadbalancer.server.port=9000"
 
+  dbgate:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dbgate.rule=Host(`db.${DOMAIN}`)"
+      - "traefik.http.routers.dbgate.entrypoints=websecure"
+      - "traefik.http.routers.dbgate.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.dbgate.middlewares=auth"
+      - "traefik.http.services.dbgate.loadbalancer.server.port=3000"
+
   uptime-kuma:
     labels:
       - "traefik.enable=true"

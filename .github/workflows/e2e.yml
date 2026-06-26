@@ -112,7 +112,7 @@ jobs:
           # 4xx allowed, add it as an explicit per-host exception below.
           set +e
           FAIL=0
-          for HOST in localhost traefik.localhost admin.localhost status.localhost errors.localhost portainer.localhost dogeclaw.localhost bot.localhost; do
+          for HOST in localhost traefik.localhost admin.localhost status.localhost errors.localhost portainer.localhost dogeclaw.localhost bot.localhost db.localhost; do
             CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 \
                        --resolve "${HOST}:8000:127.0.0.1" \
                        "http://${HOST}:8000/" )
