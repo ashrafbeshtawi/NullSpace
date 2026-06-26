@@ -1,9 +1,0 @@
-# One Google account email per line, lowercase. oauth2-proxy will only let
-# these addresses sign in, regardless of OAUTH2_PROXY_EMAIL_DOMAINS.
-# Lines beginning with # are ignored.
-#
-# Add yourself before the first deploy. After editing, recreate the
-# container so the file is re-read:
-#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d oauth2-proxy
-
-beshtawi.ashraf@gmail.com
