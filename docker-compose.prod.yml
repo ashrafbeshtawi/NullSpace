@@ -19,9 +19,7 @@ services:
       - "traefik.http.routers.traefik.entrypoints=websecure"
       - "traefik.http.routers.traefik.tls.certresolver=letsencrypt"
       - "traefik.http.routers.traefik.service=api@internal"
-      - "traefik.http.routers.traefik.middlewares=auth"
-      - "traefik.http.middlewares.auth.basicauth.users=${BASIC_AUTH_USERS}"
-      - "traefik.http.middlewares.auth.basicauth.removeheader=true"
+      - "traefik.http.routers.traefik.middlewares=oauth-chain"
     ports:
       - "80:80"
       - "443:443"
@@ -29,13 +27,77 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - letsencrypt:/letsencrypt
 
+  # OAuth2 Proxy — Google OIDC sign-in in front of every admin surface.
+  # Replaces the basic-auth middleware: trusted login page (lives on
+  # accounts.google.com instead of a random subdomain, so Google Safe
+  # Browsing won't flag it as phishing), single sign-on across services,
+  # session cookies that propagate through WebSockets (which basic auth
+  # couldn't do — see DbGate's POST /config/* 401s).
+  oauth2-proxy:
+    image: quay.io/oauth2-proxy/oauth2-proxy:latest
+    container_name: oauth2-proxy
+    environment:
+      - OAUTH2_PROXY_PROVIDER=google
+      - OAUTH2_PROXY_CLIENT_ID=${OAUTH_CLIENT_ID}
+      - OAUTH2_PROXY_CLIENT_SECRET=${OAUTH_CLIENT_SECRET}
+      - OAUTH2_PROXY_COOKIE_SECRET=${OAUTH_COOKIE_SECRET}
+      # Cookie scoped to the whole domain so a single sign-in covers
+      # every subdomain (admin, portainer, db, status, errors, ...).
+      - OAUTH2_PROXY_COOKIE_DOMAIN=.${DOMAIN}
+      - OAUTH2_PROXY_COOKIE_NAME=_nullspace_oauth
+      - OAUTH2_PROXY_COOKIE_SECURE=true
+      - OAUTH2_PROXY_WHITELIST_DOMAINS=.${DOMAIN}
+      # `*` here means "any Google account" — narrowing happens via the
+      # authenticated-emails file, where you list exactly who is allowed.
+      - OAUTH2_PROXY_EMAIL_DOMAINS=*
+      - OAUTH2_PROXY_AUTHENTICATED_EMAILS_FILE=/etc/oauth2-proxy/allowed-emails.txt
+      - OAUTH2_PROXY_HTTP_ADDRESS=0.0.0.0:4180
+      # see top-level `configs:` block below — the allowed-emails file is
+      # materialised from $OAUTH_ALLOWED_EMAIL in .env so the actual
+      # address never lives in the git tree.
+      - OAUTH2_PROXY_REVERSE_PROXY=true
+      - OAUTH2_PROXY_REDIRECT_URL=https://auth.${DOMAIN}/oauth2/callback
+      - OAUTH2_PROXY_SET_XAUTHREQUEST=true
+      # static://202 makes /oauth2/auth (the ForwardAuth target) return
+      # 202 instead of trying to proxy to a real upstream.
+      - OAUTH2_PROXY_UPSTREAMS=static://202
+    configs:
+      - source: oauth_allowed_emails
+        target: /etc/oauth2-proxy/allowed-emails.txt
+        mode: 0444
+    restart: unless-stopped
+    networks:
+      - public-web
+    labels:
+      - "traefik.enable=true"
+      # Public router — handles the in-browser sign-in flow + Google's
+      # callback. No middleware: these endpoints have to be reachable.
+      - "traefik.http.routers.oauth.rule=Host(`auth.${DOMAIN}`)"
+      - "traefik.http.routers.oauth.entrypoints=websecure"
+      - "traefik.http.routers.oauth.tls.certresolver=letsencrypt"
+      - "traefik.http.services.oauth.loadbalancer.server.port=4180"
+      # ForwardAuth — Traefik calls oauth2-proxy /oauth2/auth before each
+      # request to a protected service. 202 → pass through. 401 → the
+      # `oauth-errors` middleware below serves the sign-in page instead.
+      - "traefik.http.middlewares.oauth-auth.forwardauth.address=http://oauth2-proxy:4180/oauth2/auth"
+      - "traefik.http.middlewares.oauth-auth.forwardauth.trustForwardHeader=true"
+      - "traefik.http.middlewares.oauth-auth.forwardauth.authResponseHeaders=X-Auth-Request-Email,X-Auth-Request-User,Set-Cookie"
+      # On 401 from ForwardAuth, replace the response body with
+      # oauth2-proxy's sign-in page (containing the "Sign in with Google"
+      # link, with `rd` set so we return to the original URL after login).
+      - "traefik.http.middlewares.oauth-errors.errors.status=401"
+      - "traefik.http.middlewares.oauth-errors.errors.service=oauth"
+      - "traefik.http.middlewares.oauth-errors.errors.query=/oauth2/sign_in?rd={url}"
+      # Chain — apply errors first so it can wrap the auth response.
+      - "traefik.http.middlewares.oauth-chain.chain.middlewares=oauth-errors,oauth-auth"
+
   portainer:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.portainer.rule=Host(`portainer.${DOMAIN}`)"
       - "traefik.http.routers.portainer.entrypoints=websecure"
       - "traefik.http.routers.portainer.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.portainer.middlewares=auth"
+      - "traefik.http.routers.portainer.middlewares=oauth-chain"
       - "traefik.http.services.portainer.loadbalancer.server.port=9000"
 
   dbgate:
@@ -44,7 +106,7 @@ services:
       - "traefik.http.routers.dbgate.rule=Host(`db.${DOMAIN}`)"
       - "traefik.http.routers.dbgate.entrypoints=websecure"
       - "traefik.http.routers.dbgate.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.dbgate.middlewares=auth"
+      - "traefik.http.routers.dbgate.middlewares=oauth-chain"
       - "traefik.http.services.dbgate.loadbalancer.server.port=3000"
 
   uptime-kuma:
@@ -54,7 +116,7 @@ services:
       - "traefik.http.routers.uptime.rule=Host(`status.${DOMAIN}`)"
       - "traefik.http.routers.uptime.entrypoints=websecure"
       - "traefik.http.routers.uptime.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.uptime.middlewares=auth"
+      - "traefik.http.routers.uptime.middlewares=oauth-chain"
       - "traefik.http.services.uptime.loadbalancer.server.port=3001"
       # Public router for the Push API only. Push URLs are token-bearing
       # (the random suffix is the auth), so basic-auth in front of them
@@ -74,7 +136,7 @@ services:
       - "traefik.http.routers.glitchtip.rule=Host(`errors.${DOMAIN}`)"
       - "traefik.http.routers.glitchtip.entrypoints=websecure"
       - "traefik.http.routers.glitchtip.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.glitchtip.middlewares=auth"
+      - "traefik.http.routers.glitchtip.middlewares=oauth-chain"
       - "traefik.http.services.glitchtip.loadbalancer.server.port=8000"
 
   glitchtip-worker:
@@ -103,7 +165,7 @@ services:
       - "traefik.http.routers.admin.rule=Host(`admin.${DOMAIN}`)"
       - "traefik.http.routers.admin.entrypoints=websecure"
       - "traefik.http.routers.admin.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.admin.middlewares=auth"
+      - "traefik.http.routers.admin.middlewares=oauth-chain"
       - "traefik.http.services.admin.loadbalancer.server.port=80"
 
   dogeclaw:
@@ -123,7 +185,7 @@ services:
       - "traefik.http.routers.telebot.rule=Host(`bot.${DOMAIN}`)"
       - "traefik.http.routers.telebot.entrypoints=websecure"
       - "traefik.http.routers.telebot.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.telebot.middlewares=auth"
+      - "traefik.http.routers.telebot.middlewares=oauth-chain"
       - "traefik.http.services.telebot.loadbalancer.server.port=3000"
       # Public router for /api/webhook + /api/auto-match. Telegram cannot
       # send basic-auth credentials with webhook deliveries, and the
@@ -152,3 +214,11 @@ services:
       - "traefik.http.middlewares.apex-to-www.redirectregex.regex=^https?://${DOMAIN}/(.*)"
       - "traefik.http.middlewares.apex-to-www.redirectregex.replacement=https://www.${DOMAIN}/$${1}"
       - "traefik.http.middlewares.apex-to-www.redirectregex.permanent=true"
+
+# Inline-content config: the allowed-emails file that oauth2-proxy
+# consumes is materialised from $OAUTH_ALLOWED_EMAIL at compose time
+# and mounted read-only into the container, so the actual address
+# lives only in the host's .env (already gitignored). One address only.
+configs:
+  oauth_allowed_emails:
+    content: ${OAUTH_ALLOWED_EMAIL:-}
