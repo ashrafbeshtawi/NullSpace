@@ -88,8 +88,19 @@ services:
       - "traefik.http.middlewares.oauth-errors.errors.status=401"
       - "traefik.http.middlewares.oauth-errors.errors.service=oauth"
       - "traefik.http.middlewares.oauth-errors.errors.query=/oauth2/sign_in?rd={url}"
-      # Chain — apply errors first so it can wrap the auth response.
-      - "traefik.http.middlewares.oauth-chain.chain.middlewares=oauth-errors,oauth-auth"
+      # oauth2-proxy's sign-in page emits RELATIVE links to /oauth2/start
+      # — when that page is rendered on admin.${DOMAIN} (via the errors
+      # middleware above), the link resolves to admin.${DOMAIN}/oauth2/start
+      # → ForwardAuth → 401 → page re-renders → infinite re-prompt loop.
+      # This middleware catches any /oauth2/* request on a protected host
+      # and 302s it over to auth.${DOMAIN}, where oauth2-proxy lives.
+      # The `rd` is rewritten to the host root so we return to the right
+      # subdomain after the Google flow completes.
+      - "traefik.http.middlewares.oauth-redirect.redirectregex.regex=^https?://([^/]+)/oauth2/.*$$"
+      - "traefik.http.middlewares.oauth-redirect.redirectregex.replacement=https://auth.${DOMAIN}/oauth2/start?rd=https://$${1}/"
+      # Chain — redirect first (handles the sign-in link clicks), then
+      # errors-wrapped auth check for everything else.
+      - "traefik.http.middlewares.oauth-chain.chain.middlewares=oauth-redirect,oauth-errors,oauth-auth"
 
   portainer:
     labels:
