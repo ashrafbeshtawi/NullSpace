@@ -99,6 +99,34 @@ services:
     networks:
       - internal
 
+  # DbGate — modern web-based database client. Pre-baked with a single
+  # connection to the project's Postgres instance using the cluster's
+  # main credentials, so the sidebar shows every database (nullspace,
+  # glitchtip, dogeclaw, telebot, ...) at a glance.
+  dbgate:
+    image: dbgate/dbgate:latest
+    container_name: dbgate
+    environment:
+      - CONNECTIONS=pg
+      - LABEL_pg=NullSpace Postgres
+      - SERVER_pg=postgres
+      - PORT_pg=5432
+      - USER_pg=${POSTGRES_USER}
+      - PASSWORD_pg=${POSTGRES_PASSWORD}
+      - ENGINE_pg=postgres@dbgate-plugin-postgres
+    volumes:
+      - dbgate_data:/root/.dbgate
+    depends_on:
+      postgres:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.services.dbgate.loadbalancer.server.port=3000"
+      - "traefik.docker.network=nullspace_public-web"
+    networks:
+      - public-web
+      - internal
+
   uptime-kuma:
     image: louislam/uptime-kuma:1
     container_name: uptime-kuma
@@ -290,3 +318,4 @@ volumes:
   uptime_kuma_data:
   ollama_data:
   agent_workspace:
+  dbgate_data:

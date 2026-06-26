@@ -376,8 +376,9 @@ $stats = [
             ['name' => 'TeleBot',   'sub' => 'bot.',      'desc' => 'Anonymous chat bot',   'type' => 'app', 'icon' => '&#128172;'],
         ],
         'Infrastructure' => [
-            ['name' => 'Traefik', 'sub' => 'traefik.', 'desc' => 'Reverse proxy', 'type' => 'infra', 'icon' => '&#9881;'],
+            ['name' => 'Traefik',   'sub' => 'traefik.',   'desc' => 'Reverse proxy',     'type' => 'infra', 'icon' => '&#9881;'],
             ['name' => 'Portainer', 'sub' => 'portainer.', 'desc' => 'Docker management', 'type' => 'infra', 'icon' => '&#9638;'],
+            ['name' => 'DbGate',    'sub' => 'db.',        'desc' => 'Database client',   'type' => 'infra', 'icon' => '&#128452;'],
         ],
         'Monitoring' => [
             ['name' => 'Uptime Kuma', 'sub' => 'status.', 'desc' => 'Uptime monitoring', 'type' => 'monitor', 'icon' => '&#9829;'],
