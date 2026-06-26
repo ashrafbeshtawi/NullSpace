@@ -60,6 +60,13 @@ services:
       # address never lives in the git tree.
       - OAUTH2_PROXY_REVERSE_PROXY=true
       - OAUTH2_PROXY_REDIRECT_URL=https://auth.${DOMAIN}/oauth2/callback
+      # Issue a unique CSRF cookie per /oauth2/start call (named with the
+      # state hash) so stale cookies from earlier retries or parallel
+      # tabs can't invalidate the in-flight flow. Mitigates oauth2-proxy
+      # upstream bug #3258 ("Unable to find a valid CSRF token") and
+      # cleans up the common "tried twice, second one breaks" footgun.
+      - OAUTH2_PROXY_COOKIE_CSRF_PER_REQUEST=true
+      - OAUTH2_PROXY_COOKIE_CSRF_PER_REQUEST_LIMIT=5
       - OAUTH2_PROXY_SET_XAUTHREQUEST=true
       # static://202 makes /oauth2/auth (the ForwardAuth target) return
       # 202 instead of trying to proxy to a real upstream.
