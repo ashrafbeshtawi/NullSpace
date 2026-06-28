@@ -114,6 +114,14 @@ services:
       - USER_pg=${POSTGRES_USER}
       - PASSWORD_pg=${POSTGRES_PASSWORD}
       - ENGINE_pg=postgres@dbgate-plugin-postgres
+      # DbGate's own login (session-cookie auth, app layer). Traefik
+      # doesn't gate this service because DbGate's frontend strips
+      # credentials on its XHRs — any proxy-level cookie auth would 401
+      # every /config/* call after the HTML load. App-level auth works
+      # because the frontend cooperates with its OWN session cookie.
+      # Both default to empty so dev stays anonymous; set both in prod.
+      - LOGIN=${DBGATE_LOGIN:-}
+      - PASSWORD=${DBGATE_PASSWORD:-}
     volumes:
       - dbgate_data:/root/.dbgate
     depends_on:
