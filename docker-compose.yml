@@ -290,6 +290,36 @@ services:
       - public-web
       - internal
 
+  # Portfolio — personal portfolio site (Symfony + Twig).
+  # Source: github.com/ashrafbeshtawi/Portfolio. Connects to its own
+  # `portfolio` database (provisioned by postgres-init) using the cluster's
+  # main POSTGRES_USER credentials; container entrypoint waits for the DB,
+  # then runs doctrine migrations + seed on startup. The /admin panel is
+  # protected by the app's own env-based login — the entrypoint refuses to
+  # start if ADMIN_PASSWORD is unset or left at the upstream default.
+  portfolio:
+    image: ghcr.io/ashrafbeshtawi/portfolio:latest
+    container_name: portfolio
+    environment:
+      - APP_ENV=prod
+      - APP_SECRET=${PORTFOLIO_APP_SECRET:-portfolio-change-me}
+      # serverVersion matches the shared cluster (postgres:16), not the
+      # upstream repo's standalone compose (18).
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/portfolio?serverVersion=16&charset=utf8
+      - ADMIN_USERNAME=${PORTFOLIO_ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${PORTFOLIO_ADMIN_PASSWORD:-changeme}
+    depends_on:
+      postgres-init:
+        condition: service_completed_successfully
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.services.portfolio.loadbalancer.server.port=80"
+      - "traefik.docker.network=nullspace_public-web"
+      - "com.centurylinklabs.watchtower.enable=true"
+    networks:
+      - public-web
+      - internal
+
   kiwelt:
     image: ghcr.io/ashrafbeshtawi/kiwelt:latest
     container_name: kiwelt

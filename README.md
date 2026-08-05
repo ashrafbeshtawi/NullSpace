@@ -36,6 +36,7 @@ All public hostnames derive from `${DOMAIN}` in `.env` (default `datenflow.de`).
 | Service | URL | Description |
 |---------|-----|-------------|
 | Main Site | `www.${DOMAIN}` | Landing page (apex redirects here) |
+| Portfolio | `ashraf.${DOMAIN}` | Personal portfolio (Symfony, own `/admin` login) |
 | DogeClaw | `dogeclaw.${DOMAIN}` | AI agent (web UI + Telegram + cron + tools) |
 | Ollama | (internal only) | Local LLM server — manual start |
 
