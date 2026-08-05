@@ -372,6 +372,7 @@ $stats = [
     $sections = [
         'Applications' => [
             ['name' => 'Main Site', 'sub' => '',          'desc' => 'Landing page',         'type' => 'app', 'icon' => '&#9670;'],
+            ['name' => 'Portfolio', 'sub' => 'ashraf.',   'desc' => 'Personal portfolio',   'type' => 'app', 'icon' => '&#128188;'],
             ['name' => 'DogeClaw',  'sub' => 'dogeclaw.', 'desc' => 'AI agent',             'type' => 'app', 'icon' => '&#128054;'],
             ['name' => 'TeleBot',   'sub' => 'bot.',      'desc' => 'Anonymous chat bot',   'type' => 'app', 'icon' => '&#128172;'],
         ],
