@@ -141,6 +141,16 @@ services:
       - "traefik.http.routers.telebot-public.service=telebot"
       - "traefik.http.routers.telebot-public.priority=100"
 
+  portfolio:
+    # Public site — no basic auth. /admin is guarded by the app's own
+    # env-based login (PORTFOLIO_ADMIN_USERNAME / PORTFOLIO_ADMIN_PASSWORD).
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.portfolio.rule=Host(`ashraf.${DOMAIN}`)"
+      - "traefik.http.routers.portfolio.entrypoints=websecure"
+      - "traefik.http.routers.portfolio.tls.certresolver=letsencrypt"
+      - "traefik.http.services.portfolio.loadbalancer.server.port=80"
+
   kiwelt:
     labels:
       - "traefik.enable=true"
