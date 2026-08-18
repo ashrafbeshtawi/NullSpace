@@ -18,3 +18,6 @@ WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'telebot')\gexec
 
 SELECT 'CREATE DATABASE portfolio'
 WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'portfolio')\gexec
+
+SELECT 'CREATE DATABASE kiwelt'
+WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'kiwelt')\gexec
