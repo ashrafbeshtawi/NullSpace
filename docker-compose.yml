@@ -327,10 +327,7 @@ services:
   # after the first deploy (and any release shipping new migrations) run:
   #   docker exec kiwelt php bin/console doctrine:migrations:migrate -n
   kiwelt:
-    # Pinned to the Symfony rework branch tag — :latest is still the old
-    # Node image (port 3000, SMTP_* vars). Switch back to :latest once
-    # rework/symfony-base merges into kiwelt main.
-    image: ghcr.io/ashrafbeshtawi/kiwelt:rework-symfony-base
+    image: ghcr.io/ashrafbeshtawi/kiwelt:latest
     container_name: kiwelt
     environment:
       - APP_ENV=prod
