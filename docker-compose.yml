@@ -320,27 +320,38 @@ services:
       - public-web
       - internal
 
+  # Kiwelt — datenflow.de main site (Symfony + Twig).
+  # Source: github.com/ashrafbeshtawi/kiwelt. Connects to its own `kiwelt`
+  # database (provisioned by postgres-init) using the cluster's main
+  # POSTGRES_USER credentials. The image does NOT run migrations on startup —
+  # after the first deploy (and any release shipping new migrations) run:
+  #   docker exec kiwelt php bin/console doctrine:migrations:migrate -n
   kiwelt:
     image: ghcr.io/ashrafbeshtawi/kiwelt:latest
     container_name: kiwelt
     environment:
-      - DOMAIN=${DOMAIN}
-      # SMTP transport — pulled from .env on the host; overridden in dev to
-      # point at the local mailpit container (see docker-compose.override.yml).
-      - SMTP_HOST=${SMTP_HOST:-}
-      - SMTP_PORT=${SMTP_PORT:-}
-      - SMTP_SECURE=${SMTP_SECURE:-}
-      - SMTP_USER=${SMTP_USER:-}
-      - SMTP_PASS=${SMTP_PASS:-}
+      - APP_ENV=prod
+      - APP_SECRET=${KIWELT_APP_SECRET:-kiwelt-change-me}
+      # serverVersion matches the shared cluster (postgres:16), not the
+      # upstream repo's standalone compose (18).
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/kiwelt?serverVersion=16&charset=utf8
+      # Mail — dev defaults in .env.example target the local mailpit
+      # container; the VPS .env carries the real Hostinger SMTP DSN.
+      - MAILER_DSN=${MAILER_DSN:-}
       - MAIL_FROM=${MAIL_FROM:-}
       - MAIL_TO_CONTACT=${MAIL_TO_CONTACT:-}
       - MAIL_TO_KARRIERE=${MAIL_TO_KARRIERE:-}
+    depends_on:
+      postgres-init:
+        condition: service_completed_successfully
     labels:
       - "traefik.enable=true"
-      - "traefik.http.services.kiwelt.loadbalancer.server.port=3000"
+      - "traefik.http.services.kiwelt.loadbalancer.server.port=80"
+      - "traefik.docker.network=nullspace_public-web"
       - "com.centurylinklabs.watchtower.enable=true"
     networks:
       - public-web
+      - internal
 
 networks:
   public-web:
