@@ -320,18 +320,18 @@ services:
       - public-web
       - internal
 
-  # Kiwelt — datenflow.de main site (Symfony + Twig).
-  # Source: github.com/ashrafbeshtawi/kiwelt. Connects to its own `kiwelt`
-  # database (provisioned by postgres-init) using the cluster's main
+  # Datenflow — datenflow.de main site (Symfony + Twig).
+  # Source: github.com/ashrafbeshtawi/datenflow. Connects to its own `kiwelt`
+  # database (kept its pre-rename name; provisioned by postgres-init) using the cluster's main
   # POSTGRES_USER credentials. The image does NOT run migrations on startup —
   # after the first deploy (and any release shipping new migrations) run:
-  #   docker exec kiwelt php bin/console doctrine:migrations:migrate -n
-  kiwelt:
-    image: ghcr.io/ashrafbeshtawi/kiwelt:latest
-    container_name: kiwelt
+  #   docker exec datenflow php bin/console doctrine:migrations:migrate -n
+  datenflow:
+    image: ghcr.io/ashrafbeshtawi/datenflow:latest
+    container_name: datenflow
     environment:
       - APP_ENV=prod
-      - APP_SECRET=${KIWELT_APP_SECRET:-kiwelt-change-me}
+      - APP_SECRET=${DATENFLOW_APP_SECRET:-datenflow-change-me}
       # serverVersion matches the shared cluster (postgres:16), not the
       # upstream repo's standalone compose (18).
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/kiwelt?serverVersion=16&charset=utf8
@@ -346,7 +346,7 @@ services:
         condition: service_completed_successfully
     labels:
       - "traefik.enable=true"
-      - "traefik.http.services.kiwelt.loadbalancer.server.port=80"
+      - "traefik.http.services.datenflow.loadbalancer.server.port=80"
       - "traefik.docker.network=nullspace_public-web"
       - "com.centurylinklabs.watchtower.enable=true"
     networks:
