@@ -321,8 +321,8 @@ services:
       - internal
 
   # Datenflow — datenflow.de main site (Symfony + Twig).
-  # Source: github.com/ashrafbeshtawi/datenflow. Connects to its own `datenflow`
-  # database (provisioned by postgres-init) using the cluster's main
+  # Source: github.com/ashrafbeshtawi/datenflow. Connects to its own `kiwelt`
+  # database (kept its pre-rename name; provisioned by postgres-init) using the cluster's main
   # POSTGRES_USER credentials. The image does NOT run migrations on startup —
   # after the first deploy (and any release shipping new migrations) run:
   #   docker exec datenflow php bin/console doctrine:migrations:migrate -n
@@ -334,7 +334,7 @@ services:
       - APP_SECRET=${DATENFLOW_APP_SECRET:-datenflow-change-me}
       # serverVersion matches the shared cluster (postgres:16), not the
       # upstream repo's standalone compose (18).
-      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/datenflow?serverVersion=16&charset=utf8
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/kiwelt?serverVersion=16&charset=utf8
       # Mail — dev defaults in .env.example target the local mailpit
       # container; the VPS .env carries the real Hostinger SMTP DSN.
       - MAILER_DSN=${MAILER_DSN:-}
