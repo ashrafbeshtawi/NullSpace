@@ -1,15 +1,16 @@
-name: E2E Stack Smoke Test
+name: CI
 
-# Catastrophic-failure guard. Brings the whole stack up against a clean
-# postgres volume and verifies:
+# Catastrophic-failure guard + prod deploy. The smoke test brings the whole
+# stack up against a clean postgres volume and verifies:
 #   - compose config is valid
 #   - every container reaches a non-crashed state (Up, or Exited 0 for one-shots)
 #   - Traefik routes each public service to a non-5xx response
 #
-# Runs on PRs (so regressions are caught before merge) and on push to main
-# (final gate before the deploy workflow fires). HTTPS / Let's Encrypt /
-# basic auth are dev-mode bypassed via the auto-loaded override file —
-# we're testing service health, not the prod ingress story.
+# Runs on PRs (so regressions are caught before merge) and on push to main,
+# where the deploy job waits for it (`needs: smoke`) — a failing smoke test
+# blocks the deploy. HTTPS / Let's Encrypt / basic auth are dev-mode bypassed
+# via the auto-loaded override file — we're testing service health, not the
+# prod ingress story.
 
 on:
   pull_request:
@@ -112,7 +113,7 @@ jobs:
           # 4xx allowed, add it as an explicit per-host exception below.
           set +e
           FAIL=0
-          for HOST in localhost traefik.localhost admin.localhost status.localhost errors.localhost portainer.localhost dogeclaw.localhost bot.localhost db.localhost; do
+          for HOST in localhost ashraf.localhost traefik.localhost admin.localhost status.localhost errors.localhost portainer.localhost dogeclaw.localhost bot.localhost db.localhost; do
             CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 \
                        --resolve "${HOST}:8000:127.0.0.1" \
                        "http://${HOST}:8000/" )
@@ -149,3 +150,27 @@ jobs:
       - name: Tear down
         if: always()
         run: docker compose down -v --remove-orphans
+
+  deploy:
+    # Prod deploy — only on push to main, and only after the smoke test
+    # passes. Skipped on PRs.
+    needs: smoke
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          command_timeout: 30m
+          script: |
+            set -e
+            cd /opt/NullSpace
+            git pull origin main
+            # Pull updated third-party images (dogeclaw, dogeclaw-migrations, postgres, etc.)
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml down --remove-orphans
+            # --build covers the few services still built locally (admin, default, ollama)
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
