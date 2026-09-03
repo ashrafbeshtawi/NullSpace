@@ -335,6 +335,8 @@ services:
       # serverVersion matches the shared cluster (postgres:16), not the
       # upstream repo's standalone compose (18).
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/kiwelt?serverVersion=16&charset=utf8
+      - ADMIN_USER=${DATENFLOW_ADMIN_USER:-admin}
+      - ADMIN_PASSWORD=${DATENFLOW_ADMIN_PASSWORD:-changeme}
       # Mail — dev defaults in .env.example target the local mailpit
       # container; the VPS .env carries the real Hostinger SMTP DSN.
       - MAILER_DSN=${MAILER_DSN:-}
