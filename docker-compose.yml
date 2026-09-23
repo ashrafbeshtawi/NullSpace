@@ -355,6 +355,48 @@ services:
       - public-web
       - internal
 
+  # Mockingbird — social-media post scheduler (Next.js).
+  # Source: github.com/ashrafbeshtawi/Mocking-Bird. Prebuilt multi-arch image
+  # from GHCR; connects to its own `mockingbird` database (provisioned by
+  # postgres-init) and runs its own SQL migrations on every start. An unset
+  # OAuth provider only disables that login button; unset Cloudinary vars
+  # only disable media upload. The app has no internal scheduler — posts are
+  # published by host cron hitting its webhooks (see bin/mockingbird-cron.sh).
+  mockingbird:
+    image: ghcr.io/ashrafbeshtawi/mocking-bird:latest
+    container_name: mockingbird
+    environment:
+      - DATABASE_STRING=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/mockingbird
+      - NEXTAUTH_SECRET=${MOCKINGBIRD_NEXTAUTH_SECRET}
+      # Must be https — NextAuth sets a secure session cookie.
+      - NEXTAUTH_URL=https://mockingbird.${DOMAIN}
+      - GOOGLE_CLIENT_ID=${MOCKINGBIRD_GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${MOCKINGBIRD_GOOGLE_CLIENT_SECRET}
+      - GITHUB_CLIENT_ID=${MOCKINGBIRD_GITHUB_CLIENT_ID}
+      - GITHUB_CLIENT_SECRET=${MOCKINGBIRD_GITHUB_CLIENT_SECRET}
+      - DISCORD_CLIENT_ID=${MOCKINGBIRD_DISCORD_CLIENT_ID}
+      - DISCORD_CLIENT_SECRET=${MOCKINGBIRD_DISCORD_CLIENT_SECRET}
+      - FB_APP_ID=${MOCKINGBIRD_FB_APP_ID}
+      - FB_APP_SECRET=${MOCKINGBIRD_FB_APP_SECRET}
+      - X_API_KEY=${MOCKINGBIRD_X_API_KEY}
+      - X_API_KEY_SECRET=${MOCKINGBIRD_X_API_KEY_SECRET}
+      - TELEGRAM_BOT_TOKEN=${MOCKINGBIRD_TELEGRAM_BOT_TOKEN}
+      # cloudinary://key:secret@cloud
+      - CLOUDINARY_URL=${MOCKINGBIRD_CLOUDINARY_URL}
+      - CLOUDINARY_UPLOAD_PRESET=${MOCKINGBIRD_CLOUDINARY_UPLOAD_PRESET}
+      - WEBHOOK_SECRET=${MOCKINGBIRD_WEBHOOK_SECRET}
+    depends_on:
+      postgres-init:
+        condition: service_completed_successfully
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.services.mockingbird.loadbalancer.server.port=3000"
+      - "traefik.docker.network=nullspace_public-web"
+      - "com.centurylinklabs.watchtower.enable=true"
+    networks:
+      - public-web
+      - internal
+
 networks:
   public-web:
     driver: bridge

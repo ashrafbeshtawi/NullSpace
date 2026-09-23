@@ -22,3 +22,6 @@ WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'portfolio')\gexec
 -- The datenflow service (ex-kiwelt) keeps its original `kiwelt` database.
 SELECT 'CREATE DATABASE kiwelt'
 WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'kiwelt')\gexec
+
+SELECT 'CREATE DATABASE mockingbird'
+WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'mockingbird')\gexec

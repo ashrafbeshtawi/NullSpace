@@ -167,3 +167,14 @@ services:
       - "traefik.http.middlewares.apex-to-www.redirectregex.regex=^https?://${DOMAIN}/(.*)"
       - "traefik.http.middlewares.apex-to-www.redirectregex.replacement=https://www.${DOMAIN}/$${1}"
       - "traefik.http.middlewares.apex-to-www.redirectregex.permanent=true"
+
+  mockingbird:
+    # No `middlewares=auth` — the app has its own OAuth login, and the OAuth
+    # callbacks (/api/auth/callback/*) and cron webhooks (/api/webhooks/*)
+    # must be reachable without basic auth.
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.mockingbird.rule=Host(`mockingbird.${DOMAIN}`)"
+      - "traefik.http.routers.mockingbird.entrypoints=websecure"
+      - "traefik.http.routers.mockingbird.tls.certresolver=letsencrypt"
+      - "traefik.http.services.mockingbird.loadbalancer.server.port=3000"
