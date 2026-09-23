@@ -233,17 +233,6 @@ Ollama is not redeployed automatically — start it manually on the VPS when nee
 
 Mockingbird (`ghcr.io/ashrafbeshtawi/mocking-bird:latest`), like telebot, portfolio and datenflow, is pulled from GHCR and carries the `com.centurylinklabs.watchtower.enable=true` label — watchtower picks up new upstream images within the hour, no NullSpace push needed.
 
-## Mockingbird cron
-
-Mockingbird has no internal scheduler. Scheduled posts are published, and orphaned media pruned, by host cron POSTing the app's webhooks with the `x-webhook-secret` header. `bin/mockingbird-cron.sh` sources `/opt/NullSpace/.env` for `MOCKINGBIRD_WEBHOOK_SECRET` and `DOMAIN`, then fires the named hook. Add to the root crontab:
-
-```
-* * * * *  /opt/NullSpace/bin/mockingbird-cron.sh publish       >> /var/log/nullspace-mockingbird-cron.log 2>&1
-15 4 * * * /opt/NullSpace/bin/mockingbird-cron.sh cleanup-media >> /var/log/nullspace-mockingbird-cron.log 2>&1
-```
-
-The log is already matched by the `/var/log/nullspace-*.log` glob in `/etc/logrotate.d/nullspace`.
-
 ## Backups
 
 Two-layer strategy: nightly local dumps + encrypted off-site copies to Backblaze B2.
@@ -342,7 +331,6 @@ NullSpace/
 │   ├── cleanup.sh                  # docker image + builder prune
 │   ├── renew-certs.sh              # nudge traefik to retry Let's Encrypt
 │   ├── shell.sh                    # docker compose exec wrapper
-│   ├── mockingbird-cron.sh         # fire Mockingbird's publish / cleanup-media webhooks (cron)
 │   └── fix-docker-api.sh           # one-shot Docker 26+ min-API-version workaround
 ├── scripts/
 │   └── cluster-init.sql            # Idempotent CREATE DATABASE statements run by postgres-init

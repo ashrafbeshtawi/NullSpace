@@ -360,8 +360,7 @@ services:
   # from GHCR; connects to its own `mockingbird` database (provisioned by
   # postgres-init) and runs its own SQL migrations on every start. An unset
   # OAuth provider only disables that login button; unset Cloudinary vars
-  # only disable media upload. The app has no internal scheduler — posts are
-  # published by host cron hitting its webhooks (see bin/mockingbird-cron.sh).
+  # only disable media upload.
   mockingbird:
     image: ghcr.io/ashrafbeshtawi/mocking-bird:latest
     container_name: mockingbird
