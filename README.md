@@ -38,6 +38,7 @@ All public hostnames derive from `${DOMAIN}` in `.env` (default `datenflow.de`).
 | Main Site | `www.${DOMAIN}` | Landing page (apex redirects here) |
 | Portfolio | `ashraf.${DOMAIN}` | Personal portfolio (Symfony, own `/admin` login) |
 | DogeClaw | `dogeclaw.${DOMAIN}` | AI agent (web UI + Telegram + cron + tools) |
+| Mockingbird | `mockingbird.${DOMAIN}` | Social-media post scheduler (Next.js, own OAuth login) |
 | Ollama | (internal only) | Local LLM server — manual start |
 
 ### Infrastructure
@@ -186,6 +187,7 @@ Add to `/etc/hosts`:
 127.0.0.1  portainer.localhost
 127.0.0.1  status.localhost
 127.0.0.1  errors.localhost
+127.0.0.1  mockingbird.localhost
 ```
 
 Services run on `*.localhost:8000` (HTTP, no auth on Traefik dashboard).
@@ -228,6 +230,8 @@ docker compose ... up -d --build   # builds local services (admin, default, olla
 DogeClaw upgrades happen by bumping the image tag in `docker-compose.yml` (e.g. `:1.0` → `:1.1`) and pushing — the `pull` step grabs the new image. Rolling within the same major.minor (`1.0.x` patches) needs no NullSpace push at all; the next deploy here picks them up via `pull`.
 
 Ollama is not redeployed automatically — start it manually on the VPS when needed.
+
+Mockingbird (`ghcr.io/ashrafbeshtawi/mocking-bird:latest`), like telebot, portfolio and datenflow, is pulled from GHCR and carries the `com.centurylinklabs.watchtower.enable=true` label — watchtower picks up new upstream images within the hour, no NullSpace push needed.
 
 ## Backups
 

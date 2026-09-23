@@ -375,6 +375,7 @@ $stats = [
             ['name' => 'Portfolio', 'sub' => 'ashraf.',   'desc' => 'Personal portfolio',   'type' => 'app', 'icon' => '&#128188;'],
             ['name' => 'DogeClaw',  'sub' => 'dogeclaw.', 'desc' => 'AI agent',             'type' => 'app', 'icon' => '&#128054;'],
             ['name' => 'TeleBot',   'sub' => 'bot.',      'desc' => 'Anonymous chat bot',   'type' => 'app', 'icon' => '&#128172;'],
+            ['name' => 'Mockingbird', 'sub' => 'mockingbird.', 'desc' => 'Social-media post scheduler', 'type' => 'app', 'icon' => '&#128038;'],
         ],
         'Infrastructure' => [
             ['name' => 'Traefik',   'sub' => 'traefik.',   'desc' => 'Reverse proxy',     'type' => 'infra', 'icon' => '&#9881;'],
