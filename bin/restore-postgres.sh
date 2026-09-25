@@ -5,8 +5,9 @@
 #
 # DESTRUCTIVE: replays the dump into the running postgres container, which
 # will overwrite any conflicting databases/roles. Requires a typed
-# confirmation. Stops dependent services first so they don't race writes
-# against the restore, then restarts them after.
+# confirmation (NULLSPACE_RESTORE_YES=1 skips it — restore-offsite.sh has
+# already asked). Stops every other service first so nothing holds a
+# connection or races writes against the replay, then restarts them after.
 
 set -e
 
@@ -28,21 +29,33 @@ set -a
 . ./.env
 set +a
 
-echo "About to restore $DUMP into the running postgres container."
-echo "This will OVERWRITE existing data. Type 'yes' to continue:"
-read -r CONFIRM
-if [ "$CONFIRM" != "yes" ]; then
-  echo "aborted."
-  exit 1
+if [ "${NULLSPACE_RESTORE_YES:-}" != "1" ]; then
+  echo "About to restore $DUMP into the running postgres container."
+  echo "This will OVERWRITE existing data. Type 'yes' to continue:"
+  read -r CONFIRM
+  if [ "$CONFIRM" != "yes" ]; then
+    echo "aborted."
+    exit 1
+  fi
 fi
 
-echo "==> stopping app services"
-docker compose stop glitchtip dogeclaw datenflow || true
+# Every running service except postgres itself, traefik, and admin (this
+# script may be running from the admin panel — stopping admin would kill
+# it). Derived at runtime so a new database consumer never has to be added
+# here by hand; a hardcoded list drifted out of sync with cluster-init.sql.
+APPS=$(docker compose ps --services --status running | grep -vxE 'postgres|traefik|admin' || true)
+
+echo "==> stopping services: $(echo $APPS)"
+if [ -n "$APPS" ]; then
+  docker compose stop $APPS
+fi
 
 echo "==> restoring dump"
 gunzip -c "$DUMP" | docker compose exec -T postgres psql -U "$POSTGRES_USER" -d postgres
 
-echo "==> restarting app services"
-docker compose start glitchtip dogeclaw datenflow
+echo "==> restarting services"
+if [ -n "$APPS" ]; then
+  docker compose start $APPS
+fi
 
 echo "==> done."
