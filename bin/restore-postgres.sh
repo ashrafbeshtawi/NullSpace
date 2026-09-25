@@ -37,12 +37,12 @@ if [ "$CONFIRM" != "yes" ]; then
 fi
 
 echo "==> stopping app services"
-docker compose stop glitchtip glitchtip-worker dogeclaw datenflow || true
+docker compose stop glitchtip dogeclaw datenflow || true
 
 echo "==> restoring dump"
 gunzip -c "$DUMP" | docker compose exec -T postgres psql -U "$POSTGRES_USER" -d postgres
 
 echo "==> restarting app services"
-docker compose start glitchtip glitchtip-worker dogeclaw datenflow
+docker compose start glitchtip dogeclaw datenflow
 
 echo "==> done."
