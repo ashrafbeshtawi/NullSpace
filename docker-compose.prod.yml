@@ -82,10 +82,6 @@ services:
       - "traefik.http.routers.glitchtip.middlewares=auth"
       - "traefik.http.services.glitchtip.loadbalancer.server.port=8000"
 
-  glitchtip-worker:
-    environment:
-      - GLITCHTIP_DOMAIN=https://errors.${DOMAIN}
-
   admin:
     environment:
       - ADMIN_SCHEME=https

@@ -47,10 +47,6 @@ services:
       - "traefik.http.routers.glitchtip.entrypoints=web"
       - "traefik.http.services.glitchtip.loadbalancer.server.port=8000"
 
-  glitchtip-worker:
-    environment:
-      - GLITCHTIP_DOMAIN=http://errors.localhost:8000
-
   admin:
     environment:
       - ADMIN_SCHEME=http
