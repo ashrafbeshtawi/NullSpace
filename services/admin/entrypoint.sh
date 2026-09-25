@@ -41,8 +41,8 @@ fi
 # owner stays root, world has no access. Changes propagate to the host
 # via the bind mount, so root over SSH keeps full read/write.
 if [ -f /etc/nullspace-backup.env ]; then
-  chgrp www-data /etc/nullspace-backup.env || true
-  chmod 640 /etc/nullspace-backup.env || true
+  chgrp www-data /etc/nullspace-backup.env && chmod 640 /etc/nullspace-backup.env \
+    || echo "warning: could not make /etc/nullspace-backup.env readable by www-data — backup/restore buttons will fail" >&2
 fi
 
 exec apache2-foreground

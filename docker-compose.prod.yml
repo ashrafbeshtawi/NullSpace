@@ -90,9 +90,13 @@ services:
     environment:
       - ADMIN_SCHEME=https
       - ADMIN_DOMAIN=${DOMAIN}
-    # Read-only access to the off-site backup credentials so the admin
-    # panel's Backup Restore buttons can run bin/backup-offsite.sh and
-    # bin/restore-offsite.sh — those scripts source /etc/nullspace-backup.env.
+    # Access to the off-site backup credentials so the admin panel's Backup
+    # Restore buttons can run bin/backup-offsite.sh and bin/restore-offsite.sh
+    # — those scripts source /etc/nullspace-backup.env. Deliberately NOT
+    # read_only: the entrypoint chgrp/chmods the file to root:www-data 640 so
+    # PHP (www-data) can read it, and a read-only bind mount rejects that with
+    # EROFS — the file then stays root:root 600 and every restore button
+    # fails with "missing or unreadable". www-data still can't write it.
     # create_host_path: false makes the container fail to start (loudly)
     # if the file is missing on the VPS, rather than silently creating an
     # empty directory at that path.
@@ -100,7 +104,6 @@ services:
       - type: bind
         source: /etc/nullspace-backup.env
         target: /etc/nullspace-backup.env
-        read_only: true
         bind:
           create_host_path: false
     labels:
