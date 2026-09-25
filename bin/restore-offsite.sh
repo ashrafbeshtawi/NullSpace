@@ -98,8 +98,9 @@ cmd_pg() {
     echo "         Existing data in the running postgres container will be lost."
     confirm "Restore this dump into the running postgres container?"
 
-    cd "$PROJECT_DIR"
-    gunzip -c "$dump" | docker compose exec -T postgres psql -U "${POSTGRES_USER:-nullspace}" -d postgres
+    # Same replay as the local path — restore-postgres.sh stops every other
+    # service around it so nothing holds a connection during the replay.
+    NULLSPACE_RESTORE_YES=1 "$PROJECT_DIR/bin/restore-postgres.sh" "$dump"
     echo "==> postgres restored from $dump"
 }
 
