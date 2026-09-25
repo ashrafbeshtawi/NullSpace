@@ -72,6 +72,9 @@ services:
       - "traefik.http.routers.uptime-push.priority=100"
 
   glitchtip:
+    # No `middlewares=auth` — GlitchTip has its own login, and the SDK
+    # ingest endpoints (/api/<project>/envelope/ etc.) are hit by the other
+    # services with only a DSN key; basic auth in front would 401 them.
     environment:
       - GLITCHTIP_DOMAIN=https://errors.${DOMAIN}
     labels:
@@ -79,7 +82,6 @@ services:
       - "traefik.http.routers.glitchtip.rule=Host(`errors.${DOMAIN}`)"
       - "traefik.http.routers.glitchtip.entrypoints=websecure"
       - "traefik.http.routers.glitchtip.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.glitchtip.middlewares=auth"
       - "traefik.http.services.glitchtip.loadbalancer.server.port=8000"
 
   admin:
