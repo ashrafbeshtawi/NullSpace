@@ -1,0 +1,10 @@
+# run.php (PHP, running as www-data) executes the allowlisted ./bin scripts
+# as root — the same user cron runs them as on the host. That way no host
+# file needs its permissions bent for the PHP user (docker.sock,
+# /var/backups/nullspace, /etc/nullspace-backup.env). It grants nothing new:
+# www-data already holds the docker socket, which is host root.
+#
+# NULLSPACE_RESTORE_YES is how run.php tells restore-offsite.sh to skip its
+# interactive confirmation; sudo's env_reset would drop it otherwise.
+Defaults:www-data env_keep += "NULLSPACE_RESTORE_YES"
+www-data ALL=(root) NOPASSWD: /opt/NullSpace/bin/*.sh

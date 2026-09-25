@@ -69,7 +69,11 @@ if ($needs_snapshot) {
     // Skip the script's interactive `Type 'yes' to continue:` prompt.
     $cmd .= 'NULLSPACE_RESTORE_YES=1 ';
 }
-$cmd .= escapeshellarg($script);
+// Scripts run as root via sudo (sudoers ships in the image): they need the
+// docker socket, /var/backups/nullspace and /etc/nullspace-backup.env, and
+// root reads/writes all of those without any host permission changes.
+// -n: never prompt — fail loudly if sudoers somehow doesn't match.
+$cmd .= 'sudo -n ' . escapeshellarg($script);
 if ($subcommand !== null) {
     $cmd .= ' ' . escapeshellarg($subcommand);
 }

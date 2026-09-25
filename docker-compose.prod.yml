@@ -93,6 +93,8 @@ services:
     # Read-only access to the off-site backup credentials so the admin
     # panel's Backup Restore buttons can run bin/backup-offsite.sh and
     # bin/restore-offsite.sh — those scripts source /etc/nullspace-backup.env.
+    # The file stays root:root 600; run.php runs the scripts as root via
+    # sudo, so nothing needs to loosen it.
     # create_host_path: false makes the container fail to start (loudly)
     # if the file is missing on the VPS, rather than silently creating an
     # empty directory at that path.
