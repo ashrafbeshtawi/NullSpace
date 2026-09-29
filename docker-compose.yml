@@ -242,6 +242,8 @@ services:
       - POSTGRES_PORT=5432
       - DOGECLAW_TELEGRAM_MODE=${DOGECLAW_TELEGRAM_MODE:-polling}
       - DOGECLAW_WEBHOOK_URL=${DOGECLAW_WEBHOOK_URL:-}
+      # Error reporting to GlitchTip; empty = disabled in the app.
+      - SENTRY_DSN=${DOGECLAW_SENTRY_DSN:-}
     volumes:
       - agent_workspace:/root/agent-workspace
     depends_on:
@@ -274,6 +276,8 @@ services:
       - AUTO_MATCH_ENABLED=${AUTO_MATCH_ENABLED:-true}
       - AUTO_MATCH_CRON=${AUTO_MATCH_CRON:-* * * * *}
       - AUTO_MATCH_MIN_WAIT=${AUTO_MATCH_MIN_WAIT:-30}
+      # Error reporting to GlitchTip; empty = disabled in the app.
+      - SENTRY_DSN=${TELEBOT_SENTRY_DSN:-}
     depends_on:
       postgres-init:
         condition: service_completed_successfully
@@ -304,6 +308,8 @@ services:
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/portfolio?serverVersion=16&charset=utf8
       - ADMIN_USERNAME=${PORTFOLIO_ADMIN_USERNAME:-admin}
       - ADMIN_PASSWORD=${PORTFOLIO_ADMIN_PASSWORD:-changeme}
+      # Error reporting to GlitchTip; empty = disabled in the app.
+      - SENTRY_DSN=${PORTFOLIO_SENTRY_DSN:-}
     depends_on:
       postgres-init:
         condition: service_completed_successfully
@@ -339,6 +345,8 @@ services:
       - MAIL_FROM=${MAIL_FROM:-}
       - MAIL_TO_CONTACT=${MAIL_TO_CONTACT:-}
       - MAIL_TO_KARRIERE=${MAIL_TO_KARRIERE:-}
+      # Error reporting to GlitchTip; empty = disabled in the app.
+      - SENTRY_DSN=${DATENFLOW_SENTRY_DSN:-}
     depends_on:
       postgres-init:
         condition: service_completed_successfully
@@ -380,6 +388,8 @@ services:
       - CLOUDINARY_URL=${MOCKINGBIRD_CLOUDINARY_URL}
       - CLOUDINARY_UPLOAD_PRESET=${MOCKINGBIRD_CLOUDINARY_UPLOAD_PRESET}
       - WEBHOOK_SECRET=${MOCKINGBIRD_WEBHOOK_SECRET}
+      # Error reporting to GlitchTip; empty = disabled in the app.
+      - SENTRY_DSN=${MOCKINGBIRD_SENTRY_DSN:-}
     depends_on:
       postgres-init:
         condition: service_completed_successfully

@@ -54,6 +54,8 @@ All public hostnames derive from `${DOMAIN}` in `.env` (default `datenflow.de`).
 | Uptime Kuma | `status.${DOMAIN}` | Uptime monitoring & status page |
 | GlitchTip | `errors.${DOMAIN}` | Sentry-compatible error tracking |
 
+GlitchTip has one project per app (`dogeclaw`, `telebot`, `mockingbird`, `datenflow`, `portfolio`). Each app reads its DSN from `SENTRY_DSN`, which compose fills from the matching `<APP>_SENTRY_DSN` in `.env`; leave a value empty to disable reporting for that app. Use the internal host form (`http://<key>@glitchtip:8000/<id>`) so events stay on the Docker network.
+
 ### Shared (internal)
 | Service | Description |
 |---------|-------------|
