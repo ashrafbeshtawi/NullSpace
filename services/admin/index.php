@@ -476,13 +476,15 @@ $stats = [
                 </button>
             </form>
             <?php endforeach; ?>
-            <a href="/env.php" class="ops-btn" style="text-decoration: none;">
-                <div class="icon">&#128221;</div>
-                <div class="card-info">
-                    <div class="ops-btn-name">Edit .env</div>
-                    <div class="ops-btn-desc">View, edit, download or upload /opt/NullSpace/.env</div>
-                </div>
-            </a>
+            <form method="GET" action="/env.php" class="ops-form">
+                <button type="submit" class="ops-btn">
+                    <div class="icon">&#128221;</div>
+                    <div class="card-info">
+                        <div class="ops-btn-name">Edit .env</div>
+                        <div class="ops-btn-desc">View, edit, download or upload /opt/NullSpace/.env</div>
+                    </div>
+                </button>
+            </form>
         </div>
     </div>
 
