@@ -16,6 +16,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/* \
     && git config --system --add safe.directory /opt/NullSpace
 
-COPY index.php run.php /var/www/html/
+COPY index.php run.php env.php /var/www/html/
+COPY php.ini /usr/local/etc/php/conf.d/admin.ini
 COPY --chmod=0440 sudoers /etc/sudoers.d/admin-panel
 RUN visudo -cf /etc/sudoers.d/admin-panel
