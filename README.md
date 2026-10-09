@@ -337,7 +337,7 @@ NullSpace/
 ├── scripts/
 │   └── cluster-init.sql            # Idempotent CREATE DATABASE statements run by postgres-init
 └── services/
-    ├── admin/                      # PHP dashboard + ops buttons (deploy / backup / etc.)
+    ├── admin/                      # PHP dashboard + ops buttons (deploy / backup / .env editor / etc.)
     └── ollama/                     # Ollama LLM container (manual start)
 ```
 
