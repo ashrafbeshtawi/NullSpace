@@ -13,7 +13,7 @@ if (empty($_SESSION['csrf'])) {
 $csrf = $_SESSION['csrf'];
 
 const ENV_SCRIPT   = '/opt/NullSpace/bin/env-file.sh';
-const MAX_ENV_SIZE = 1024 * 1024;
+const MAX_ENV_SIZE = 10 * 1024 * 1024; // matches upload_max_filesize in php.ini
 
 // Runs env-file.sh with the given subcommand; returns [exit code, stdout+stderr].
 function env_file($subcommand, $stdin = '') {
@@ -29,57 +29,86 @@ function env_file($subcommand, $stdin = '') {
     return [proc_close($proc), $out];
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $token = $_POST['csrf'] ?? '';
-    if (!hash_equals($csrf, $token)) {
-        http_response_code(403);
-        exit('csrf check failed');
-    }
+function fail($status, $message) {
+    http_response_code($status);
+    exit($message);
+}
 
-    $action = $_POST['action'] ?? '';
-    $content = null;
-    if ($action === 'save') {
-        $content = $_POST['content'] ?? null;
-    } elseif ($action === 'upload') {
-        $file = $_FILES['file'] ?? null;
-        if ($file && $file['error'] === UPLOAD_ERR_OK && is_uploaded_file($file['tmp_name'])) {
-            $content = file_get_contents($file['tmp_name']);
-        } else {
-            $_SESSION['env_flash'] = ['error', 'upload failed'];
-        }
-    } else {
-        http_response_code(400);
-        exit('unknown action');
-    }
-
-    if ($content !== null) {
-        $content = str_replace("\r\n", "\n", $content);
-        if (strlen($content) > MAX_ENV_SIZE) {
-            $_SESSION['env_flash'] = ['error', 'file too large (max 1 MB)'];
-        } elseif (strpos($content, "\0") !== false || !mb_check_encoding($content, 'UTF-8')) {
-            $_SESSION['env_flash'] = ['error', 'not a text file'];
-        } else {
-            [$code, $out] = env_file('write', $content);
-            $_SESSION['env_flash'] = [$code === 0 ? 'ok' : 'error', trim($out)];
-        }
-    }
-
+function redirect_to_editor() {
     header('Location: /env.php', true, 303);
     exit;
 }
 
-[$read_code, $env] = env_file('read');
+// Returns the new .env content from the editor textarea or the uploaded file.
+function submitted_content($action) {
+    if ($action === 'save') {
+        return $_POST['content'] ?? '';
+    }
+    $file = $_FILES['file'] ?? null;
+    if ($file && $file['error'] === UPLOAD_ERR_INI_SIZE) {
+        throw new RuntimeException('file too large (max ' . (MAX_ENV_SIZE / 1024 / 1024) . ' MB)');
+    }
+    if (!$file || $file['error'] !== UPLOAD_ERR_OK || !is_uploaded_file($file['tmp_name'])) {
+        throw new RuntimeException('upload failed');
+    }
+    return file_get_contents($file['tmp_name']);
+}
 
-if (isset($_GET['download'])) {
+// Normalizes line endings and rejects content that is not a plausible .env.
+function validate_env_content($content) {
+    $content = str_replace("\r\n", "\n", $content);
+    if (strlen($content) > MAX_ENV_SIZE) {
+        throw new RuntimeException('file too large (max ' . (MAX_ENV_SIZE / 1024 / 1024) . ' MB)');
+    }
+    if (strpos($content, "\0") !== false || !mb_check_encoding($content, 'UTF-8')) {
+        throw new RuntimeException('not a text file');
+    }
+    return $content;
+}
+
+// Writes the submitted content; returns the [status, message] flash.
+function handle_post($action) {
+    try {
+        $content = validate_env_content(submitted_content($action));
+    } catch (RuntimeException $e) {
+        return ['error', $e->getMessage()];
+    }
+    [$code, $out] = env_file('write', $content);
+    return [$code === 0 ? 'ok' : 'error', trim($out)];
+}
+
+function send_download($read_code, $env) {
     if ($read_code !== 0) {
-        http_response_code(500);
-        exit($env);
+        fail(500, $env);
     }
     header('Content-Type: text/plain; charset=utf-8');
     header('Content-Disposition: attachment; filename=".env"');
     header('Cache-Control: no-store');
     echo $env;
     exit;
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // A body over post_max_size arrives with $_POST emptied, csrf included.
+    if (empty($_POST) && (int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > 0) {
+        $_SESSION['env_flash'] = ['error', 'request too large'];
+        redirect_to_editor();
+    }
+    if (!hash_equals($csrf, $_POST['csrf'] ?? '')) {
+        fail(403, 'csrf check failed');
+    }
+    $action = $_POST['action'] ?? '';
+    if (!in_array($action, ['save', 'upload'], true)) {
+        fail(400, 'unknown action');
+    }
+    $_SESSION['env_flash'] = handle_post($action);
+    redirect_to_editor();
+}
+
+[$read_code, $env] = env_file('read');
+
+if (isset($_GET['download'])) {
+    send_download($read_code, $env);
 }
 
 $flash = $_SESSION['env_flash'] ?? null;
