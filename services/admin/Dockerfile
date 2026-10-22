@@ -1,4 +1,4 @@
-FROM php:8.3-apache
+FROM php:8.3.36-apache
 
 # sudo: run.php runs the ./bin scripts as root (see sudoers).
 # restic: needed by backup-offsite.sh / restore-offsite.sh.
