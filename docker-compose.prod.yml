@@ -45,6 +45,11 @@ services:
     # initial HTML load. DbGate uses its own LOGIN/PASSWORD env vars
     # (see docker-compose.yml) which are session-cookie-based at the
     # *app* layer, where the frontend cooperates.
+    # Empty LOGIN/PASSWORD means anonymous access to a superuser console,
+    # so prod refuses to start unless both are set in .env.
+    environment:
+      - LOGIN=${DBGATE_LOGIN:?}
+      - PASSWORD=${DBGATE_PASSWORD:?}
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.dbgate.rule=Host(`db.${DOMAIN}`)"

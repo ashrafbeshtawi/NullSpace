@@ -129,7 +129,8 @@ services:
       # credentials on its XHRs — any proxy-level cookie auth would 401
       # every /config/* call after the HTML load. App-level auth works
       # because the frontend cooperates with its OWN session cookie.
-      # Both default to empty so dev stays anonymous; set both in prod.
+      # Both default to empty so dev stays anonymous; docker-compose.prod.yml
+      # makes both required.
       - LOGIN=${DBGATE_LOGIN:-}
       - PASSWORD=${DBGATE_PASSWORD:-}
     volumes:
