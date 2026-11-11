@@ -1,6 +1,7 @@
 services:
   traefik:
-    image: traefik:v3.4
+    # v3.6+ negotiates the Docker API version; v3.4 is rejected by Docker 29.
+    image: traefik:v3.6
     container_name: traefik
     restart: unless-stopped
     command:
