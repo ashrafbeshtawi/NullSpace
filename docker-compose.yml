@@ -97,6 +97,10 @@ services:
       - --label-enable
       - --interval=60
       - --cleanup
+    environment:
+      # containrrr/watchtower defaults to API 1.25, which newer Docker
+      # daemons reject ("Minimum supported API version is 1.40").
+      - DOCKER_API_VERSION=1.40
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
