@@ -114,6 +114,13 @@ restore_volume() {
         echo "    skip $vol_short (not in snapshot)"
         return 0
     fi
+    # A volume can't be removed while a container (even a stopped one) still
+    # references it, so drop its users first; the final `up -d` recreates them.
+    local users
+    users=$(docker ps -aq --filter "volume=$vol_full")
+    if [ -n "$users" ]; then
+        docker rm -f $users >/dev/null
+    fi
     docker volume rm "$vol_full" >/dev/null 2>&1 || true
     docker volume create "$vol_full" >/dev/null
     docker run --rm \
@@ -126,13 +133,22 @@ restore_volume() {
 cmd_full() {
     local snap="${1:?snapshot id or 'latest' required}"
 
+    local compose=(docker compose -f docker-compose.yml -f docker-compose.prod.yml)
+
     echo "Full disaster recovery from snapshot $snap. This will:"
-    echo "  1. Stop the compose stack"
+    echo "  1. Stop every service except admin and traefik"
     echo "  2. Restore .env (overwriting current)"
     echo "  3. Recreate and restore named volumes: ${VOLUMES[*]}"
     echo "  4. Bring postgres up and replay the latest pg dump in the snapshot"
-    echo "  5. Bring the rest of the stack up"
+    echo "  5. Bring the rest of the stack up, admin last"
     confirm
+
+    # Keep a copy of the output on the host: restoring the letsencrypt volume
+    # recreates traefik, which cuts the admin panel's live output.
+    local log="/var/backups/nullspace/restore-full-$(date +%Y%m%d-%H%M%S).log"
+    mkdir -p /var/backups/nullspace
+    exec > >(tee -a "$log") 2>&1
+    echo "==> logging to $log"
 
     local target
     target=$(restore_to_staging "$snap")
@@ -140,8 +156,15 @@ cmd_full() {
 
     cd "$PROJECT_DIR"
 
-    echo "==> stopping stack"
-    docker compose -f docker-compose.yml -f docker-compose.prod.yml down
+    # Not `down`: this script may be running from the admin panel, and
+    # stopping admin would kill it halfway (same trap restore-postgres.sh
+    # avoids). traefik stays up so the panel keeps streaming output.
+    local apps
+    apps=$("${compose[@]}" ps --services --status running | grep -vxE 'admin|traefik' || true)
+    echo "==> stopping services: $(echo $apps)"
+    if [ -n "$apps" ]; then
+        "${compose[@]}" stop $apps
+    fi
 
     echo "==> restoring .env"
     if [ -f "$target$PROJECT_DIR/.env" ]; then
@@ -149,6 +172,11 @@ cmd_full() {
     else
         echo "    .env not in snapshot — leaving current in place"
     fi
+    # The pg steps need POSTGRES_USER from the (restored) .env; the web path
+    # does not export it. Sourced without -u, like backup-postgres.sh does.
+    set +u -a
+    . "$PROJECT_DIR/.env"
+    set -u +a
 
     echo "==> restoring named volumes"
     for VOL_SHORT in "${VOLUMES[@]}"; do
@@ -156,10 +184,10 @@ cmd_full() {
     done
 
     echo "==> bringing postgres up"
-    docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d postgres
+    "${compose[@]}" up -d postgres
     # Wait until postgres reports healthy.
     for _ in $(seq 1 30); do
-        if docker compose exec -T postgres pg_isready -U "${POSTGRES_USER:-nullspace}" >/dev/null 2>&1; then
+        if "${compose[@]}" exec -T postgres pg_isready -U "$POSTGRES_USER" >/dev/null 2>&1; then
             break
         fi
         sleep 1
@@ -169,15 +197,18 @@ cmd_full() {
     dump=$(find "$target/var/backups/nullspace" -name 'pg-*.sql.gz' 2>/dev/null | sort | tail -1)
     if [ -n "$dump" ]; then
         echo "==> replaying $dump"
-        gunzip -c "$dump" | docker compose exec -T postgres psql -U "${POSTGRES_USER:-nullspace}" -d postgres
+        gunzip -c "$dump" | "${compose[@]}" exec -T postgres psql -U "$POSTGRES_USER" -d postgres
     else
         echo "    no pg dump in snapshot — skipping postgres restore"
     fi
 
     echo "==> bringing rest of stack up"
-    docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+    "${compose[@]}" up -d $("${compose[@]}" config --services | grep -vx admin)
 
-    echo "==> done. Verify with: docker compose ps"
+    # Last on purpose: if the restored .env changes admin's config, compose
+    # recreates admin, which ends this script.
+    echo "==> done. Verify with: docker compose ps (output also in $log)"
+    "${compose[@]}" up -d admin
 }
 
 CMD="${1:-}"
