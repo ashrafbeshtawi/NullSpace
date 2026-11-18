@@ -112,6 +112,11 @@ $display_cmd = $script
 <pre><?php
 @flush();
 
+// Keep draining the script's output when the browser goes away (closed tab,
+// or traefik recreated by a full restore). Otherwise PHP stops reading, and
+// the script dies of SIGPIPE halfway through a destructive step.
+ignore_user_abort(true);
+
 $fp = popen($cmd, 'r');
 if (!is_resource($fp)) {
     echo "failed to start process\n";

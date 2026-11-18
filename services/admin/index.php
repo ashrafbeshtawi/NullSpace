@@ -496,7 +496,7 @@ $stats = [
     $restore_destructive = [
         ['action' => 'restore-env',  'name' => 'Restore .env',  'desc' => 'replace /opt/NullSpace/.env from snapshot',                'icon' => '&#128272;'],
         ['action' => 'restore-pg',   'name' => 'Restore PG',    'desc' => 'replay latest pg dump from snapshot',                       'icon' => '&#128190;'],
-        ['action' => 'restore-full', 'name' => 'Full Restore',  'desc' => 'STOP stack, restore .env + volumes + pg, bring back up',    'icon' => '&#9888;'],
+        ['action' => 'restore-full', 'name' => 'Full Restore',  'desc' => 'STOP apps (admin stays up), restore .env + volumes + pg, bring back up',   'icon' => '&#9888;'],
     ];
     ?>
     <div class="operations">
