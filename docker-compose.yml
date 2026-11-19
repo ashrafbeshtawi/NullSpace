@@ -37,12 +37,22 @@ services:
   # on every `docker compose up`, so adding a new database or role to the
   # cluster is just "edit the SQL, redeploy". Replaces the previous
   # docker-entrypoint-initdb.d bind mount, which only fired on first volume
-  # init.
+  # init. Creates one LOGIN role per app (owner of that app's database only)
+  # and syncs its password from the matching <APP>_DB_PASSWORD below. The
+  # superuser is used here, by DbGate and by the backup/restore scripts —
+  # never by an app.
   postgres-init:
     image: postgres:16-alpine
     container_name: postgres-init
     environment:
       - PGPASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - GLITCHTIP_DB_PASSWORD=${GLITCHTIP_DB_PASSWORD}
+      - DOGECLAW_DB_PASSWORD=${DOGECLAW_DB_PASSWORD}
+      - TELEBOT_DB_PASSWORD=${TELEBOT_DB_PASSWORD}
+      - PORTFOLIO_DB_PASSWORD=${PORTFOLIO_DB_PASSWORD}
+      - DATENFLOW_DB_PASSWORD=${DATENFLOW_DB_PASSWORD}
+      - MOCKINGBIRD_DB_PASSWORD=${MOCKINGBIRD_DB_PASSWORD}
     command:
       - psql
       - -h
@@ -54,9 +64,10 @@ services:
       - -v
       - ON_ERROR_STOP=1
       - -f
-      - /cluster-init.sql
+      - /scripts/cluster-init.sql
     volumes:
-      - ./scripts/cluster-init.sql:/cluster-init.sql:ro
+      # Whole directory: cluster-init.sql pulls in app-database.sql via \ir.
+      - ./scripts:/scripts:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -163,7 +174,7 @@ services:
     container_name: glitchtip
     restart: unless-stopped
     environment:
-      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/glitchtip
+      - DATABASE_URL=postgres://glitchtip:${GLITCHTIP_DB_PASSWORD}@postgres:5432/glitchtip
       - REDIS_URL=redis://redis:6379/0
       - SECRET_KEY=${GLITCHTIP_SECRET_KEY}
       - GLITCHTIP_DOMAIN=${GLITCHTIP_DOMAIN:-}
@@ -238,8 +249,10 @@ services:
 
   # DogeClaw agent — auto-starts when the "full" profile is active.
   # Source: github.com/ashrafbeshtawi/dogeclaw. Connects to the dedicated
-  # `dogeclaw` database (provisioned by postgres-init) using the cluster's
-  # main POSTGRES_USER credentials.
+  # `dogeclaw` database (provisioned by postgres-init) as the `dogeclaw_admin`
+  # role, which owns that database and nothing else. The image derives its
+  # admin pool URL from the POSTGRES_* vars below; its agent pool uses the
+  # restricted `dogeclaw` role (password hardcoded in the image).
   dogeclaw:
     image: ghcr.io/ashrafbeshtawi/dogeclaw:latest
     container_name: dogeclaw
@@ -251,8 +264,8 @@ services:
       - DOGECLAW_WEB_USER=${DOGECLAW_WEB_USER:-admin}
       - DOGECLAW_WEB_PASSWORD=${DOGECLAW_WEB_PASSWORD:-changeme}
       - DOGECLAW_WEB_SECRET=${DOGECLAW_WEB_SECRET:-dogeclaw-change-me}
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_USER=dogeclaw_admin
+      - POSTGRES_PASSWORD=${DOGECLAW_DB_PASSWORD}
       - POSTGRES_DB=dogeclaw
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
@@ -284,7 +297,7 @@ services:
     container_name: telebot
     restart: unless-stopped
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/telebot?schema=public
+      - DATABASE_URL=postgresql://telebot:${TELEBOT_DB_PASSWORD}@postgres:5432/telebot?schema=public
       - ADMIN_USERNAME=${TELEBOT_ADMIN_USERNAME:-admin}
       - ADMIN_PASSWORD=${TELEBOT_ADMIN_PASSWORD:-changeme}
       - SESSION_SECRET=${TELEBOT_SESSION_SECRET:-telebot-change-me}
@@ -309,8 +322,8 @@ services:
 
   # Portfolio — personal portfolio site (Symfony + Twig).
   # Source: github.com/ashrafbeshtawi/Portfolio. Connects to its own
-  # `portfolio` database (provisioned by postgres-init) using the cluster's
-  # main POSTGRES_USER credentials; container entrypoint waits for the DB,
+  # `portfolio` database (provisioned by postgres-init) as its own
+  # `portfolio` role; container entrypoint waits for the DB,
   # then runs doctrine migrations + seed on startup. The /admin panel is
   # protected by the app's own env-based login — the entrypoint refuses to
   # start if ADMIN_PASSWORD is unset or left at the upstream default.
@@ -323,7 +336,7 @@ services:
       - APP_SECRET=${PORTFOLIO_APP_SECRET:-portfolio-change-me}
       # serverVersion matches the shared cluster (postgres:16), not the
       # upstream repo's standalone compose (18).
-      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/portfolio?serverVersion=16&charset=utf8
+      - DATABASE_URL=postgresql://portfolio:${PORTFOLIO_DB_PASSWORD}@postgres:5432/portfolio?serverVersion=16&charset=utf8
       - ADMIN_USERNAME=${PORTFOLIO_ADMIN_USERNAME:-admin}
       - ADMIN_PASSWORD=${PORTFOLIO_ADMIN_PASSWORD:-changeme}
       # Error reporting to GlitchTip; empty = disabled in the app.
@@ -342,8 +355,8 @@ services:
 
   # Datenflow — datenflow.de main site (Symfony + Twig).
   # Source: github.com/ashrafbeshtawi/datenflow. Connects to its own `kiwelt`
-  # database (kept its pre-rename name; provisioned by postgres-init) using the cluster's main
-  # POSTGRES_USER credentials. The image does NOT run migrations on startup —
+  # database (kept its pre-rename name; provisioned by postgres-init) as its
+  # own `datenflow` role. The image does NOT run migrations on startup —
   # after the first deploy (and any release shipping new migrations) run:
   #   docker exec datenflow php bin/console doctrine:migrations:migrate -n
   datenflow:
@@ -355,7 +368,7 @@ services:
       - APP_SECRET=${DATENFLOW_APP_SECRET:-datenflow-change-me}
       # serverVersion matches the shared cluster (postgres:16), not the
       # upstream repo's standalone compose (18).
-      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/kiwelt?serverVersion=16&charset=utf8
+      - DATABASE_URL=postgresql://datenflow:${DATENFLOW_DB_PASSWORD}@postgres:5432/kiwelt?serverVersion=16&charset=utf8
       - ADMIN_USER=${DATENFLOW_ADMIN_USER:-admin}
       - ADMIN_PASSWORD=${DATENFLOW_ADMIN_PASSWORD:-changeme}
       # Mail — dev defaults in .env.example target the local mailpit
@@ -381,7 +394,8 @@ services:
   # Mockingbird — social-media post scheduler (Next.js).
   # Source: github.com/ashrafbeshtawi/Mocking-Bird. Prebuilt multi-arch image
   # from GHCR; connects to its own `mockingbird` database (provisioned by
-  # postgres-init) and runs its own SQL migrations on every start. An unset
+  # postgres-init) as its own `mockingbird` role and runs its own SQL
+  # migrations on every start. An unset
   # OAuth provider only disables that login button; unset Cloudinary vars
   # only disable media upload.
   mockingbird:
@@ -389,7 +403,7 @@ services:
     container_name: mockingbird
     restart: unless-stopped
     environment:
-      - DATABASE_STRING=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/mockingbird
+      - DATABASE_STRING=postgresql://mockingbird:${MOCKINGBIRD_DB_PASSWORD}@postgres:5432/mockingbird
       - NEXTAUTH_SECRET=${MOCKINGBIRD_NEXTAUTH_SECRET}
       # Must be https — NextAuth sets a secure session cookie.
       - NEXTAUTH_URL=https://mockingbird.${DOMAIN}

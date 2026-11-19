@@ -62,6 +62,24 @@ GlitchTip has one project per app (`dogeclaw`, `telebot`, `mockingbird`, `datenf
 | PostgreSQL 16 | Shared database |
 | Redis 7 | Shared cache/queue |
 
+### Database roles
+
+Every app logs in to Postgres as its own role, which owns that app's database and nothing else. `PUBLIC` has no `CONNECT` on any app database, so a compromised app can't reach another app's data or the cluster itself.
+
+```
+glitchtip       ──► glitchtip
+dogeclaw_admin  ──► dogeclaw ◄── dogeclaw (agent role, restricted)
+telebot         ──► telebot
+portfolio       ──► portfolio
+datenflow       ──► kiwelt
+mockingbird     ──► mockingbird
+POSTGRES_USER   ──► everything (superuser: postgres-init, DbGate, backups/restores only)
+```
+
+`scripts/cluster-init.sql` (run by the one-shot `postgres-init` container on every `docker compose up`) creates the roles and databases, re-syncs each role's password from its `<APP>_DB_PASSWORD` in `.env`, revokes `CONNECT` from `PUBLIC`, and hands any object in an app database still owned by the superuser over to that app's role. On a cluster set up before per-app roles existed, that last step is the one-time ownership migration; afterwards it finds nothing. `bin/restore-postgres.sh` re-runs `postgres-init` after a replay, so restoring an older dump fixes up ownership the same way.
+
+To rotate an app's database password: change `<APP>_DB_PASSWORD` in `.env` and redeploy — `postgres-init` applies it before the app restarts.
+
 ## DogeClaw Agent
 
 A custom Node.js AI agent with a web UI and Telegram integration. Multi-agent, multi-model, tool-driven.
@@ -85,10 +103,10 @@ Visit `dogeclaw.${DOMAIN}/admin` to manage **Models**, **Agents**, **Skills**, a
 ### Database isolation
 
 DogeClaw uses two PostgreSQL roles:
-- **Admin role** — full CRUD on dogeclaw config tables
+- **Admin role** (`dogeclaw_admin`, password `DOGECLAW_DB_PASSWORD`) — owns the `dogeclaw` database; runs migrations and the web UI CRUD
 - **Agent role** (`dogeclaw`) — restricted SELECT on config tables; can manage its own working tables
 
-Both the role and the schema are created by the `dogeclaw-migrations` image when the stack first starts — NullSpace doesn't manage any of that itself anymore.
+`scripts/cluster-init.sql` creates both roles (the agent role with the password hardcoded in the dogeclaw image) and lets the agent role connect to the `dogeclaw` database only. The schema and the agent role's table grants come from the migrations the dogeclaw image runs on boot.
 
 ## Setup
 
@@ -112,7 +130,8 @@ Paste the output as `BASIC_AUTH_USERS` in `.env`.
 ### 3. Fill in `.env`
 
 - `DOMAIN` — public domain; everything else (Host rules, GlitchTip URL, DogeClaw webhook, from-email) is derived from it
-- `DB_USER`, `DB_PASSWORD`, `DB_NAME` — Postgres credentials
+- `DB_USER`, `DB_PASSWORD`, `DB_NAME` — Postgres superuser credentials
+- `GLITCHTIP_DB_PASSWORD`, `DOGECLAW_DB_PASSWORD`, `TELEBOT_DB_PASSWORD`, `PORTFOLIO_DB_PASSWORD`, `DATENFLOW_DB_PASSWORD`, `MOCKINGBIRD_DB_PASSWORD` — one per app role (see [Database roles](#database-roles)); `openssl rand -hex 24` each. Prod refuses to start if any is empty
 - `BASIC_AUTH_USERS` — the bcrypt hash from above
 - `GLITCHTIP_SECRET_KEY` — `openssl rand -hex 32`
 - `DOGECLAW_WEB_USER`, `DOGECLAW_WEB_PASSWORD` — DogeClaw login
@@ -209,7 +228,7 @@ Services run on `*.localhost:8000` (HTTP, no auth on Traefik dashboard).
        - public-web
    ```
 3. Add the host rule in `docker-compose.prod.yml` and `docker-compose.override.yml`.
-4. If it needs a database, add the `CREATE DATABASE` to `scripts/init-databases.sql`.
+4. If it needs a database, add an `\ir app-database.sql` block for it to `scripts/cluster-init.sql` (role, database, `<APP>_DB_PASSWORD`), pass that variable to `postgres-init` in both compose files and `.env.example`, and point the app's `DATABASE_URL` at its own role.
 5. Push to `main` — CI/CD deploys automatically.
 
 ## CI/CD
@@ -335,7 +354,8 @@ NullSpace/
 │   ├── shell.sh                    # docker compose exec wrapper
 │   └── fix-docker-api.sh           # one-shot Docker 26+ min-API-version workaround
 ├── scripts/
-│   └── cluster-init.sql            # Idempotent CREATE DATABASE statements run by postgres-init
+│   ├── cluster-init.sql            # Idempotent per-app roles + databases, run by postgres-init
+│   └── app-database.sql            # One app's role/database/ownership setup, included by cluster-init.sql
 └── services/
     ├── admin/                      # PHP dashboard + ops buttons (deploy / backup / .env editor / etc.)
     └── ollama/                     # Ollama LLM container (manual start)
