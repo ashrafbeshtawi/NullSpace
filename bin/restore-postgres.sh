@@ -53,6 +53,13 @@ fi
 echo "==> restoring dump"
 gunzip -c "$DUMP" | docker compose exec -T postgres psql -U "$POSTGRES_USER" -d postgres
 
+# A dump taken before per-app roles existed recreates every object owned by
+# the superuser, which the apps (now logging in as their own roles) can't
+# use. cluster-init.sql re-creates the roles, re-syncs their passwords from
+# .env and hands each app's objects back to its role.
+echo "==> re-applying cluster roles + ownership (postgres-init)"
+docker compose run --rm --no-deps postgres-init
+
 echo "==> restarting services"
 if [ -n "$APPS" ]; then
   docker compose start $APPS
