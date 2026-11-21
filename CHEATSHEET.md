@@ -69,7 +69,7 @@ docker exec -it dogeclaw bash
 # Login API
 curl -s -X POST http://dogeclaw.localhost:8000/api/login \
   -H "Content-Type: application/json" \
-  -d '{"user":"admin","password":"changeme"}' -c /tmp/dc
+  -d "{\"user\":\"admin\",\"password\":\"$DOGECLAW_WEB_PASSWORD\"}" -c /tmp/dc
 
 # List agents
 curl -s -b /tmp/dc http://dogeclaw.localhost:8000/api/agents

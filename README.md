@@ -117,6 +117,7 @@ Paste the output as `BASIC_AUTH_USERS` in `.env`.
 - `GLITCHTIP_SECRET_KEY` — `openssl rand -hex 32`
 - `DOGECLAW_WEB_USER`, `DOGECLAW_WEB_PASSWORD` — DogeClaw login
 - `DOGECLAW_WEB_SECRET` — `openssl rand -hex 32`
+- `PORTFOLIO_APP_SECRET`, `PORTFOLIO_ADMIN_PASSWORD`, `DATENFLOW_APP_SECRET`, `DATENFLOW_ADMIN_PASSWORD` — required; compose has no fallbacks for these or for the two DogeClaw values above, and the apps refuse empty ones
 - `DOGECLAW_ADMIN_DATABASE_URL` — full-access connection string
 - `DOGECLAW_DATABASE_URL` — restricted connection string (use `dogeclaw` user in prod)
 - `DOGECLAW_TELEGRAM_MODE` — `polling` (dev) or `webhook` (prod)
