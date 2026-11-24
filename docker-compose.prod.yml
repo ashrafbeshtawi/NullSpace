@@ -29,6 +29,18 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - letsencrypt:/letsencrypt
 
+  postgres-init:
+    # Each app logs in as its own role (see scripts/cluster-init.sql). An
+    # empty password would leave that app unable to connect, so prod
+    # refuses to start unless every one is set in .env.
+    environment:
+      - GLITCHTIP_DB_PASSWORD=${GLITCHTIP_DB_PASSWORD:?}
+      - DOGECLAW_DB_PASSWORD=${DOGECLAW_DB_PASSWORD:?}
+      - TELEBOT_DB_PASSWORD=${TELEBOT_DB_PASSWORD:?}
+      - PORTFOLIO_DB_PASSWORD=${PORTFOLIO_DB_PASSWORD:?}
+      - DATENFLOW_DB_PASSWORD=${DATENFLOW_DB_PASSWORD:?}
+      - MOCKINGBIRD_DB_PASSWORD=${MOCKINGBIRD_DB_PASSWORD:?}
+
   portainer:
     labels:
       - "traefik.enable=true"
