@@ -249,8 +249,9 @@ services:
       - DOGECLAW_OLLAMA_URL=${DOGECLAW_OLLAMA_URL:-http://ollama:11434}
       - DOGECLAW_PORT=${DOGECLAW_PORT:-3000}
       - DOGECLAW_WEB_USER=${DOGECLAW_WEB_USER:-admin}
-      - DOGECLAW_WEB_PASSWORD=${DOGECLAW_WEB_PASSWORD:-changeme}
-      - DOGECLAW_WEB_SECRET=${DOGECLAW_WEB_SECRET:-dogeclaw-change-me}
+      # No fallbacks: unset passes an empty value and the app must refuse it.
+      - DOGECLAW_WEB_PASSWORD=${DOGECLAW_WEB_PASSWORD}
+      - DOGECLAW_WEB_SECRET=${DOGECLAW_WEB_SECRET}
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=dogeclaw
@@ -320,12 +321,14 @@ services:
     restart: unless-stopped
     environment:
       - APP_ENV=prod
-      - APP_SECRET=${PORTFOLIO_APP_SECRET:-portfolio-change-me}
+      # No fallbacks for APP_SECRET / ADMIN_PASSWORD: unset passes an empty
+      # value and the app must refuse it.
+      - APP_SECRET=${PORTFOLIO_APP_SECRET}
       # serverVersion matches the shared cluster (postgres:16), not the
       # upstream repo's standalone compose (18).
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/portfolio?serverVersion=16&charset=utf8
       - ADMIN_USERNAME=${PORTFOLIO_ADMIN_USERNAME:-admin}
-      - ADMIN_PASSWORD=${PORTFOLIO_ADMIN_PASSWORD:-changeme}
+      - ADMIN_PASSWORD=${PORTFOLIO_ADMIN_PASSWORD}
       # Error reporting to GlitchTip; empty = disabled in the app.
       - SENTRY_DSN=${PORTFOLIO_SENTRY_DSN:-}
     depends_on:
@@ -352,12 +355,14 @@ services:
     restart: unless-stopped
     environment:
       - APP_ENV=prod
-      - APP_SECRET=${DATENFLOW_APP_SECRET:-datenflow-change-me}
+      # No fallbacks for APP_SECRET / ADMIN_PASSWORD: unset passes an empty
+      # value and the app must refuse it.
+      - APP_SECRET=${DATENFLOW_APP_SECRET}
       # serverVersion matches the shared cluster (postgres:16), not the
       # upstream repo's standalone compose (18).
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/kiwelt?serverVersion=16&charset=utf8
       - ADMIN_USER=${DATENFLOW_ADMIN_USER:-admin}
-      - ADMIN_PASSWORD=${DATENFLOW_ADMIN_PASSWORD:-changeme}
+      - ADMIN_PASSWORD=${DATENFLOW_ADMIN_PASSWORD}
       # Mail — dev defaults in .env.example target the local mailpit
       # container; the VPS .env carries the real Hostinger SMTP DSN.
       - MAILER_DSN=${MAILER_DSN:-}
