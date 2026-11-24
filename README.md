@@ -233,7 +233,7 @@ DogeClaw upgrades happen by bumping the image tag in `docker-compose.yml` (e.g. 
 
 Ollama is not redeployed automatically — start it manually on the VPS when needed.
 
-Mockingbird (`ghcr.io/ashrafbeshtawi/mocking-bird:latest`), like telebot, portfolio and datenflow, is pulled from GHCR and carries the `com.centurylinklabs.watchtower.enable=true` label — watchtower picks up new upstream images within the hour, no NullSpace push needed.
+Mockingbird (`ghcr.io/ashrafbeshtawi/mocking-bird:latest`), like telebot, portfolio and datenflow, is pulled from GHCR and carries the `com.centurylinklabs.watchtower.enable=true` label — watchtower picks up new upstream images within about a minute, no NullSpace push needed.
 
 ## Backups
 
