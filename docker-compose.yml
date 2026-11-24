@@ -89,7 +89,7 @@ services:
       - public-web
 
   # Watchtower — auto-updates containers labelled
-  # `com.centurylinklabs.watchtower.enable=true`. Polls every hour and prunes
+  # `com.centurylinklabs.watchtower.enable=true`. Polls every 60 seconds and prunes
   # the old image after a successful update.
   watchtower:
     image: containrrr/watchtower
