@@ -179,8 +179,8 @@ jobs:
             set -e
             cd /opt/NullSpace
             git pull origin main
-            # Pull updated third-party images (dogeclaw, dogeclaw-migrations, postgres, etc.)
+            # Pull updated registry images (dogeclaw, the other GHCR apps, postgres, etc.)
             docker compose -f docker-compose.yml -f docker-compose.prod.yml pull
             docker compose -f docker-compose.yml -f docker-compose.prod.yml down --remove-orphans
-            # --build covers the few services still built locally (admin, default, ollama)
+            # --build covers the services still built locally (admin; ollama when its profile is on)
             docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
