@@ -56,6 +56,8 @@ All public hostnames derive from `${DOMAIN}` in `.env` (default `datenflow.de`).
 
 GlitchTip has one project per app (`dogeclaw`, `telebot`, `mockingbird`, `datenflow`, `portfolio`). Each app reads its DSN from `SENTRY_DSN`, which compose fills from the matching `<APP>_SENTRY_DSN` in `.env`; leave a value empty to disable reporting for that app. Use the internal host form (`http://<key>@glitchtip:8000/<id>`) so events stay on the Docker network.
 
+Public sign-up is off (`ENABLE_USER_REGISTRATION=False`, `ENABLE_ORGANIZATION_CREATION=False`): `errors.${DOMAIN}` is reachable from the internet and the apps need no account to send events. Existing accounts and invites keep working. On a fresh install, create the first user with `docker exec -it glitchtip ./manage.py createsuperuser`, then invite others from the organization settings.
+
 ### Shared (internal)
 | Service | Description |
 |---------|-------------|
