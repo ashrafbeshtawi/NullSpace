@@ -170,6 +170,12 @@ services:
       - DEFAULT_FROM_EMAIL=noreply@${DOMAIN}
       - CELERY_WORKER_AUTOSCALE=1,3
       - ENABLE_OBSERVABILITY=True
+      # errors.${DOMAIN} is public, and GlitchTip's default is open sign-up:
+      # anyone could register and use the server as a free Sentry. Apps send
+      # events over glitchtip:8000 and need no account. Existing accounts and
+      # invites keep working; superusers can still create organizations.
+      - ENABLE_USER_REGISTRATION=False
+      - ENABLE_ORGANIZATION_CREATION=False
       # all_in_one mode: runs migrations + partition maintenance on every
       # start and embeds the background worker in this process. The plain
       # `web` role never migrates on its own (it expects a separate migrate
